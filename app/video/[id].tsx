@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Switch,
   Platform,
 } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { WebView } from 'react-native-webview';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -28,12 +28,6 @@ import {
   toggleBookmark,
 } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
-
-const VERIFIED_FAST_STREAMS = [
-  'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
-  'https://www.w3schools.com/html/mov_bbb.mp4',
-  'https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4',
-];
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -50,7 +44,6 @@ export default function VideoDetailScreen() {
   const [subscribed, setSubscribed] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [videoUri, setVideoUri] = useState<string>(VERIFIED_FAST_STREAMS[0]);
 
   useEffect(() => {
     if (!id) return;
@@ -65,17 +58,12 @@ export default function VideoDetailScreen() {
           setVideo(beData);
           setLikesCount(beData.likes_count || 0);
           setLiked(!!beData.liked);
-          setVideoUri(beData.video_url || VERIFIED_FAST_STREAMS[0]);
         } else {
           // Live cloud streaming video
           const liveData = await getLiveVideoDetail(videoId);
           if (liveData) {
             setVideo(liveData);
             setLikesCount(liveData.likes_count || 45000);
-            const idx =
-              Math.abs(videoId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) %
-              VERIFIED_FAST_STREAMS.length;
-            setVideoUri(VERIFIED_FAST_STREAMS[idx]);
           }
         }
 
@@ -91,19 +79,11 @@ export default function VideoDetailScreen() {
     fetchDetails();
   }, [id]);
 
-  // Modern Expo SDK 54 Video Player Hook
-  const player = useVideoPlayer(videoUri, (p) => {
-    p.loop = true;
-    p.play();
-  });
-
   const handleOpenExternal = async () => {
     if (video?.youtube_id) {
       await WebBrowser.openBrowserAsync(`https://www.youtube.com/watch?v=${video.youtube_id}`);
     } else if (video?.dailymotion_id) {
       await WebBrowser.openBrowserAsync(`https://www.dailymotion.com/video/${video.dailymotion_id}`);
-    } else if (videoUri) {
-      await WebBrowser.openBrowserAsync(videoUri);
     }
   };
 
@@ -144,11 +124,75 @@ export default function VideoDetailScreen() {
     return `${m}:${rem < 10 ? '0' : ''}${rem}`;
   };
 
+  // Generate exact embedded player HTML/URL
+  const getEmbedHtml = () => {
+    if (video?.youtube_id) {
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <style>
+              body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+              iframe { width: 100%; height: 100%; border: none; }
+            </style>
+          </head>
+          <body>
+            <iframe
+              src="https://www.youtube-nocookie.com/embed/${video.youtube_id}?autoplay=1&playsinline=1&modestbranding=1&rel=0"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowfullscreen
+            ></iframe>
+          </body>
+        </html>
+      `;
+    }
+
+    if (video?.dailymotion_id) {
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <style>
+              body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+              iframe { width: 100%; height: 100%; border: none; }
+            </style>
+          </head>
+          <body>
+            <iframe
+              src="https://www.dailymotion.com/embed/video/${video.dailymotion_id}?autoplay=1&ui-logo=0"
+              allow="autoplay; fullscreen"
+              allowfullscreen
+            ></iframe>
+          </body>
+        </html>
+      `;
+    }
+
+    // Default HTML5 video stream
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { margin: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; }
+            video { width: 100%; height: 100%; object-fit: contain; }
+          </style>
+        </head>
+        <body>
+          <video controls autoplay playsinline src="https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4" poster="${video?.thumbnail_url || ''}"></video>
+        </body>
+      </html>
+    `;
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#a855f7" />
-        <Text style={styles.loadingText}>Loading video stream...</Text>
+        <Text style={styles.loadingText}>Connecting to live video stream...</Text>
       </View>
     );
   }
@@ -202,14 +246,23 @@ export default function VideoDetailScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Modern Expo SDK 54 Native Video View */}
+        {/* Exact Embedded Video Player (YouTube, Dailymotion, Cloud) */}
         <View style={styles.playerContainer}>
-          <VideoView
-            player={player}
-            style={styles.videoPlayer}
-            allowsFullscreen
-            allowsPictureInPicture
-            startsPictureInPictureAutomatically
+          <WebView
+            originWhitelist={['*']}
+            source={{ html: getEmbedHtml() }}
+            style={styles.webViewPlayer}
+            allowsFullscreenVideo
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled
+            domStorageEnabled
+            startInLoadingState
+            renderLoading={() => (
+              <View style={styles.webLoadingOverlay}>
+                <ActivityIndicator size="large" color="#a855f7" />
+              </View>
+            )}
           />
         </View>
 
@@ -489,15 +542,20 @@ const styles = StyleSheet.create({
   },
   playerContainer: {
     width: '100%',
-    height: 220,
+    height: 230,
     backgroundColor: '#000000',
     position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  videoPlayer: {
+  webViewPlayer: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#000000',
+  },
+  webLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoSection: {
     paddingHorizontal: 20,

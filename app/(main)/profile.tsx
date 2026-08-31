@@ -18,6 +18,13 @@ export default function ProfileTab() {
       <Text style={styles.name}>Tino</Text>
       <Text style={styles.email}>tino@example.com</Text>
 
+      <TouchableOpacity 
+        style={styles.uploadsButton} 
+        onPress={() => router.push('/upload')}
+      >
+        <Text style={styles.uploadsButtonText}>My Uploads & Dashboard</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Log Out</Text>
       </TouchableOpacity>
@@ -41,6 +48,16 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 36, fontWeight: '700' },
   name: { color: '#fff', fontSize: 24, fontWeight: '600' },
   email: { color: '#888', marginTop: 4, fontSize: 14, marginBottom: 40 },
+  uploadsButton: {
+    backgroundColor: '#a855f7',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  uploadsButtonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   logoutButton: {
     backgroundColor: '#ff4a5a',
     paddingVertical: 14,

@@ -38,7 +38,10 @@ export function setAuthToken(token: string | null) {
 }
 
 function authHeaders() {
-  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  return {
+    'Content-Type': 'application/json',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  };
 }
 
 // --- Auth ---
@@ -62,21 +65,190 @@ export async function loginUser(email: string, password: string) {
   return res.json(); // { user, token }
 }
 
-// --- Content (all paginated — actual items are in .data) ---
-export async function getTrendingVideos() {
-  const res = await fetch(`${BASE_URL}/api/videos?sort=trending`);
+// --- Videos ---
+export async function getTrendingVideos(search?: string, category?: string, sort?: string) {
+  let url = `${BASE_URL}/api/videos?`;
+  if (search) url += `search=${encodeURIComponent(search)}&`;
+  if (category) url += `category=${encodeURIComponent(category)}&`;
+  if (sort) url += `sort=${encodeURIComponent(sort)}&`;
+  const res = await fetch(url);
   const json = await res.json();
   return json.data;
 }
 
-export async function getTrendingTracks() {
-  const res = await fetch(`${BASE_URL}/api/tracks?sort=trending`);
+export async function getVideoDetail(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/videos/${id}`);
   const json = await res.json();
   return json.data;
 }
 
-export async function getTrendingArticles() {
-  const res = await fetch(`${BASE_URL}/api/articles?sort=trending`);
+export async function getMyVideos() {
+  const res = await fetch(`${BASE_URL}/api/my-videos`, {
+    headers: authHeaders(),
+  });
   const json = await res.json();
   return json.data;
+}
+
+export async function uploadVideo(title: string, videoUrl: string, description?: string, category?: string, thumbnail?: string, duration?: number) {
+  const res = await fetch(`${BASE_URL}/api/videos`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      title,
+      video_url: videoUrl,
+      description,
+      category,
+      thumbnail_url: thumbnail,
+      duration,
+      status: 'published',
+    }),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || 'Upload failed');
+  return res.json();
+}
+
+export async function deleteVideo(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/videos/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Delete failed');
+}
+
+// --- Music/Tracks ---
+export async function getTrendingTracks(search?: string, genre?: string, sort?: string) {
+  let url = `${BASE_URL}/api/tracks?`;
+  if (search) url += `search=${encodeURIComponent(search)}&`;
+  if (genre) url += `genre=${encodeURIComponent(genre)}&`;
+  if (sort) url += `sort=${encodeURIComponent(sort)}&`;
+  const res = await fetch(url);
+  const json = await res.json();
+  return json.data;
+}
+
+export async function getTrackDetail(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/tracks/${id}`);
+  const json = await res.json();
+  return json.data;
+}
+
+export async function getMyTracks() {
+  const res = await fetch(`${BASE_URL}/api/my-tracks`, {
+    headers: authHeaders(),
+  });
+  const json = await res.json();
+  return json.data;
+}
+
+export async function uploadTrack(title: string, artist: string, audioUrl: string, genre?: string, coverArtUrl?: string, duration?: number, album?: string) {
+  const res = await fetch(`${BASE_URL}/api/tracks`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      title,
+      artist,
+      audio_url: audioUrl,
+      genre,
+      cover_art_url: coverArtUrl,
+      duration,
+      album,
+      status: 'published',
+    }),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || 'Upload failed');
+  return res.json();
+}
+
+export async function deleteTrack(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/tracks/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Delete failed');
+}
+
+// --- Articles/News ---
+export async function getTrendingArticles(search?: string, category?: string, sort?: string) {
+  let url = `${BASE_URL}/api/articles?`;
+  if (search) url += `search=${encodeURIComponent(search)}&`;
+  if (category) url += `category=${encodeURIComponent(category)}&`;
+  if (sort) url += `sort=${encodeURIComponent(sort)}&`;
+  const res = await fetch(url);
+  const json = await res.json();
+  return json.data;
+}
+
+export async function getArticleDetail(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/articles/${id}`);
+  const json = await res.json();
+  return json.data;
+}
+
+export async function getMyArticles() {
+  const res = await fetch(`${BASE_URL}/api/my-articles`, {
+    headers: authHeaders(),
+  });
+  const json = await res.json();
+  return json.data;
+}
+
+export async function uploadArticle(title: string, body: string, excerpt?: string, category?: string, coverImageUrl?: string) {
+  const res = await fetch(`${BASE_URL}/api/articles`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      title,
+      body,
+      excerpt,
+      category,
+      cover_image_url: coverImageUrl,
+      status: 'published',
+    }),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || 'Upload failed');
+  return res.json();
+}
+
+export async function deleteArticle(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/articles/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Delete failed');
+}
+
+// --- Likes ---
+export async function toggleLike(type: 'video' | 'track' | 'article', id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/${type}/${id}/like`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to toggle like');
+  return res.json(); // { liked: boolean, likes_count: number }
+}
+
+// --- Comments ---
+export async function getComments(type: 'video' | 'track' | 'article', id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/${type}/${id}/comments`);
+  const json = await res.json();
+  return json.data;
+}
+
+export async function addComment(type: 'video' | 'track' | 'article', id: string | number, body: string) {
+  const res = await fetch(`${BASE_URL}/api/${type}/${id}/comments`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) throw new Error('Failed to add comment');
+  return res.json();
+}
+
+export async function deleteComment(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/comments/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete comment');
 }

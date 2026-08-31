@@ -1,57 +1,159 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getTrendingVideos } from '../services/api';
 
+const CATEGORIES = ['All', 'Tech', 'Music', 'Vlog', 'Gaming'];
+
 export default function VideosScreen() {
+  const router = useRouter();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [sort, setSort] = useState('latest'); // 'latest' or 'trending'
 
-  useEffect(() => {
-    getTrendingVideos()
+  const fetchVideos = () => {
+    setLoading(true);
+    const catParam = category === 'All' ? undefined : category.toLowerCase();
+    const sortParam = sort === 'trending' ? 'trending' : undefined;
+    getTrendingVideos(search || undefined, catParam, sortParam)
       .then(setVideos)
       .catch(err => console.error('Failed to load videos:', err))
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#a855f7" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    fetchVideos();
+  }, [category, sort]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Trending Videos</Text>
-      <FlatList
-        data={videos}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.videoItem}>
-            <View style={styles.thumbnail}>
-              <Text style={styles.playIcon}>▶</Text>
-            </View>
-            <View style={styles.info}>
-              <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-              {item.views && <Text style={styles.meta}>{item.views} views</Text>}
-            </View>
-            {item.duration && <Text style={styles.duration}>{item.duration}</Text>}
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No videos found</Text>
-        }
+      <Text style={styles.header}>Videos</Text>
+      
+      {/* Search Input */}
+      <TextInput
+        style={styles.searchBar}
+        placeholder="Search videos..."
+        placeholderTextColor="#666"
+        value={search}
+        onChangeText={setSearch}
+        onSubmitEditing={fetchVideos}
+        returnKeyType="search"
       />
+
+      {/* Categories Horizontal Scroll */}
+      <View style={styles.categoriesContainer}>
+        <FlatList
+          horizontal
+          data={CATEGORIES}
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={item => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.categoryTab, category === item && styles.activeCategoryTab]}
+              onPress={() => setCategory(item)}
+            >
+              <Text style={[styles.categoryText, category === item && styles.activeCategoryText]}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
+      {/* Sort Options */}
+      <View style={styles.sortContainer}>
+        <TouchableOpacity
+          style={[styles.sortButton, sort === 'latest' && styles.activeSortButton]}
+          onPress={() => setSort('latest')}
+        >
+          <Text style={[styles.sortText, sort === 'latest' && styles.activeSortText]}>Latest</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortButton, sort === 'trending' && styles.activeSortButton]}
+          onPress={() => setSort('trending')}
+        >
+          <Text style={[styles.sortText, sort === 'trending' && styles.activeSortText]}>Trending</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#a855f7" />
+        </View>
+      ) : (
+        <FlatList
+          data={videos}
+          keyExtractor={item => item.id.toString()}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.videoItem}
+              onPress={() => router.push(`/video/${item.id}`)}
+            >
+              <View style={styles.thumbnail}>
+                <Text style={styles.playIcon}>▶</Text>
+              </View>
+              <View style={styles.info}>
+                <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+                {item.views !== undefined && <Text style={styles.meta}>{item.views} views</Text>}
+              </View>
+              {item.duration && <Text style={styles.duration}>{item.duration}</Text>}
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No videos found</Text>
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0f', padding: 24, paddingTop: 40 },
-  header: { color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 24 },
-  centered: { flex: 1, backgroundColor: '#0a0a0f', justifyContent: 'center', alignItems: 'center' },
+  header: { color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 16 },
+  searchBar: {
+    backgroundColor: '#1a1a22',
+    color: '#fff',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+    fontSize: 15,
+  },
+  categoriesContainer: { marginBottom: 16, minHeight: 36 },
+  categoryTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#1a1a22',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a35',
+  },
+  activeCategoryTab: {
+    backgroundColor: '#a855f7',
+    borderColor: '#a855f7',
+  },
+  categoryText: { color: '#888', fontSize: 14, fontWeight: '600' },
+  activeCategoryText: { color: '#fff' },
+  sortContainer: { flexDirection: 'row', marginBottom: 16 },
+  sortButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#1a1a22',
+  },
+  activeSortButton: {
+    backgroundColor: '#2a1b3d',
+    borderWidth: 1,
+    borderColor: '#a855f7',
+  },
+  sortText: { color: '#888', fontSize: 13, fontWeight: '500' },
+  activeSortText: { color: '#a855f7' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { paddingBottom: 24 },
   videoItem: {
     flexDirection: 'row',

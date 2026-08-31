@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getTrendingTracks } from '../../src/services/api';
 
 interface TrackItem {
@@ -10,6 +11,7 @@ interface TrackItem {
 }
 
 export default function MusicTab() {
+  const router = useRouter();
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +38,10 @@ export default function MusicTab() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.trackItem}>
+          <TouchableOpacity 
+            style={styles.trackItem}
+            onPress={() => router.push(`/music/${item.id}` as any)}
+          >
             <View style={styles.iconCircle}>
               <Text style={styles.icon}>🎵</Text>
             </View>

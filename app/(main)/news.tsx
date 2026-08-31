@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getTrendingArticles } from '../../src/services/api';
 
 interface ArticleItem {
@@ -10,6 +11,7 @@ interface ArticleItem {
 }
 
 export default function NewsTab() {
+  const router = useRouter();
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +38,10 @@ export default function NewsTab() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.articleItem}>
+          <TouchableOpacity 
+            style={styles.articleItem}
+            onPress={() => router.push(`/news/${item.id}` as any)}
+          >
             <View style={styles.textContainer}>
               <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
               <View style={styles.metadata}>

@@ -1,51 +1,31 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function SplashScreen({ navigation }) {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('Onboarding');
-    }, 2000);
+    const timer = setTimeout(() => navigation.replace('Onboarding'), 2000);
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, []);
 
   return (
-    <LinearGradient
-      colors={['#1a1e29', '#0d1017']}
-      style={styles.container}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>AFCE</Text>
-        <Text style={styles.subtitle}>Media App</Text>
-        <ActivityIndicator size="large" color="#00ddff" style={styles.loader} />
-      </View>
-    </LinearGradient>
+    <View style={styles.container}>
+      <LinearGradient colors={['#a855f7', '#ec4899']} style={styles.iconCircle}>
+        <Text style={styles.playIcon}>▶</Text>
+      </LinearGradient>
+      <Text style={styles.title}>
+        AFCE <Text style={styles.titleAccent}>MEDIA</Text>
+      </Text>
+      <Text style={styles.subtitle}>Watch. Listen. Read. Enjoy.</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#9ba1b0',
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  loader: {
-    marginTop: 40,
-  },
+  container: { flex: 1, backgroundColor: '#0a0a0f', justifyContent: 'center', alignItems: 'center' },
+  iconCircle: { width: 90, height: 90, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  playIcon: { color: '#fff', fontSize: 36 },
+  title: { color: '#fff', fontSize: 24, fontWeight: '600', letterSpacing: 1 },
+  titleAccent: { color: '#c084fc' },
+  subtitle: { color: '#888', marginTop: 8, fontSize: 14 },
 });

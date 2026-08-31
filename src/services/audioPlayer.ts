@@ -1,17 +1,28 @@
 import { Audio, AVPlaybackStatus } from 'expo-av';
 
+export interface ActiveTrackInfo {
+  id: string | number;
+  title: string;
+  artist: string;
+  cover_art_url: string;
+  audio_url: string;
+  duration?: number;
+}
+
 export interface PlaybackState {
   isPlaying: boolean;
   positionMillis: number;
   durationMillis: number;
   isLoading: boolean;
   currentTrackId: string | number | null;
+  currentTrack: ActiveTrackInfo | null;
   error?: string | null;
 }
 
 let soundInstance: Audio.Sound | null = null;
 let currentTrackUrl: string | null = null;
 let currentTrackId: string | number | null = null;
+let currentTrackMeta: ActiveTrackInfo | null = null;
 let stateListeners: ((state: PlaybackState) => void)[] = [];
 
 let currentState: PlaybackState = {
@@ -20,6 +31,7 @@ let currentState: PlaybackState = {
   durationMillis: 0,
   isLoading: false,
   currentTrackId: null,
+  currentTrack: null,
 };
 
 function notifyListeners() {
@@ -48,9 +60,33 @@ export async function initAudioMode() {
   }
 }
 
-export async function playTrack(trackId: string | number, audioUrl: string) {
+export async function playTrack(
+  trackId: string | number,
+  audioUrl: string,
+  meta?: { title?: string; artist?: string; cover_art_url?: string; duration?: number }
+) {
   try {
     await initAudioMode();
+
+    if (meta) {
+      currentTrackMeta = {
+        id: trackId,
+        title: meta.title || 'Playing Track',
+        artist: meta.artist || 'Artist',
+        cover_art_url: meta.cover_art_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600',
+        audio_url: audioUrl,
+        duration: meta.duration || 180,
+      };
+    } else if (!currentTrackMeta || currentTrackMeta.id !== trackId) {
+      currentTrackMeta = {
+        id: trackId,
+        title: 'Playing Track',
+        artist: 'Artist',
+        cover_art_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600',
+        audio_url: audioUrl,
+        duration: 180,
+      };
+    }
 
     if (currentTrackUrl === audioUrl && soundInstance) {
       const status = await soundInstance.getStatusAsync();
@@ -77,6 +113,7 @@ export async function playTrack(trackId: string | number, audioUrl: string) {
       ...currentState,
       isLoading: true,
       currentTrackId: trackId,
+      currentTrack: currentTrackMeta,
       error: null,
     };
     notifyListeners();
@@ -123,6 +160,7 @@ function onPlaybackStatusUpdate(status: AVPlaybackStatus) {
     durationMillis: status.durationMillis || 30000,
     isLoading: status.isBuffering && !status.isPlaying,
     currentTrackId,
+    currentTrack: currentTrackMeta,
     error: null,
   };
 
@@ -168,12 +206,14 @@ export async function stopPlayback() {
     soundInstance = null;
     currentTrackUrl = null;
     currentTrackId = null;
+    currentTrackMeta = null;
     currentState = {
       isPlaying: false,
       positionMillis: 0,
       durationMillis: 0,
       isLoading: false,
       currentTrackId: null,
+      currentTrack: null,
     };
     notifyListeners();
   }

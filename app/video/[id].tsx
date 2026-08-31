@@ -12,8 +12,8 @@ import {
   Image,
   Switch,
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -25,11 +25,16 @@ import {
   getVideoDetail,
   toggleLike,
   toggleBookmark,
-  getComments,
-  addComment,
-  deleteComment,
 } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
+
+const SAMPLE_FALLBACK_STREAMS = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+];
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -41,14 +46,15 @@ export default function VideoDetailScreen() {
   const [upNextVideos, setUpNextVideos] = useState<StreamingVideo[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [videoStatus, setVideoStatus] = useState<any>({});
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [subscribed, setSubscribed] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [currentVideoUri, setCurrentVideoUri] = useState<string>('');
 
   useEffect(() => {
     if (!id) return;
@@ -63,16 +69,22 @@ export default function VideoDetailScreen() {
           setVideo(beData);
           setLikesCount(beData.likes_count || 0);
           setLiked(!!beData.liked);
+          setCurrentVideoUri(beData.video_url || SAMPLE_FALLBACK_STREAMS[0]);
         } else {
           // Live cloud streaming video
           const liveData = await getLiveVideoDetail(videoId);
           if (liveData) {
             setVideo(liveData);
             setLikesCount(liveData.likes_count || 45000);
+            const fallbackUri =
+              SAMPLE_FALLBACK_STREAMS[
+                Math.abs(videoId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) %
+                  SAMPLE_FALLBACK_STREAMS.length
+              ];
+            setCurrentVideoUri(liveData.video_url || fallbackUri);
           }
         }
 
-        // Up next videos
         const streams = await fetchLiveStreamingVideos('All');
         setUpNextVideos(streams.filter((v) => v.id.toString() !== videoId));
       } catch (err) {
@@ -86,18 +98,27 @@ export default function VideoDetailScreen() {
   }, [id]);
 
   const handlePlayToggle = async () => {
-    if (videoRef.current) {
-      if (videoStatus.isPlaying) {
+    if (!videoRef.current) return;
+    try {
+      if (isPlaying) {
         await videoRef.current.pauseAsync();
+        setIsPlaying(false);
       } else {
         await videoRef.current.playAsync();
+        setIsPlaying(true);
       }
+    } catch (err) {
+      console.warn('Video toggle error:', err);
     }
   };
 
-  const handleOpenYouTube = async () => {
+  const handleOpenExternal = async () => {
     if (video?.youtube_id) {
       await WebBrowser.openBrowserAsync(`https://www.youtube.com/watch?v=${video.youtube_id}`);
+    } else if (video?.dailymotion_id) {
+      await WebBrowser.openBrowserAsync(`https://www.dailymotion.com/video/${video.dailymotion_id}`);
+    } else if (currentVideoUri) {
+      await WebBrowser.openBrowserAsync(currentVideoUri);
     }
   };
 
@@ -122,6 +143,18 @@ export default function VideoDetailScreen() {
     setNewComment('');
   };
 
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      if (status.error) {
+        console.warn('Playback error, switching stream:', status.error);
+        setCurrentVideoUri(SAMPLE_FALLBACK_STREAMS[0]);
+      }
+      return;
+    }
+    setIsPlaying(status.isPlaying);
+    setIsBuffering(status.isBuffering);
+  };
+
   const formatViews = (views?: number) => {
     if (!views) return '1.2M views';
     if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M views`;
@@ -142,6 +175,7 @@ export default function VideoDetailScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#a855f7" />
+        <Text style={styles.loadingText}>Loading video stream...</Text>
       </View>
     );
   }
@@ -177,7 +211,9 @@ export default function VideoDetailScreen() {
           </Text>
           <View style={styles.streamBadgeRow}>
             <View style={styles.streamDot} />
-            <Text style={styles.streamBadgeText}>LIVE CLOUD VIDEO</Text>
+            <Text style={styles.streamBadgeText}>
+              {video.source_platform ? `LIVE ${video.source_platform.toUpperCase()} STREAM` : 'LIVE CLOUD VIDEO'}
+            </Text>
           </View>
         </View>
         <TouchableOpacity style={styles.headerBtn} onPress={handleBookmarkToggle}>
@@ -197,22 +233,36 @@ export default function VideoDetailScreen() {
         <View style={styles.playerContainer}>
           <Video
             ref={videoRef}
-            source={{
-              uri:
-                video.video_url ||
-                'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-            }}
-            posterSource={{ uri: video.thumbnail_url }}
-            usePoster
+            source={{ uri: currentVideoUri || SAMPLE_FALLBACK_STREAMS[0] }}
             rate={1.0}
             volume={1.0}
             isMuted={false}
             resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={isPlaying}
+            shouldPlay={false}
             useNativeControls
             style={styles.videoPlayer}
-            onPlaybackStatusUpdate={(status) => setVideoStatus(status)}
+            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
           />
+
+          {/* Central Play Overlay if paused */}
+          {!isPlaying && (
+            <TouchableOpacity
+              style={styles.centralPlayBtn}
+              onPress={handlePlayToggle}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#9333ea', '#7c3aed']}
+                style={styles.playGradient}
+              >
+                {isBuffering ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="play" size={32} color="#ffffff" style={{ marginLeft: 4 }} />
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Video Info Section */}
@@ -223,18 +273,17 @@ export default function VideoDetailScreen() {
             <Text style={styles.statsText}>
               {formatViews(video.views)} • {video.published_at || 'Recently'}
             </Text>
-            {video.youtube_id && (
-              <TouchableOpacity
-                style={styles.youtubeLinkBtn}
-                onPress={handleOpenYouTube}
-              >
-                <Ionicons name="logo-youtube" size={14} color="#ef4444" style={{ marginRight: 4 }} />
-                <Text style={styles.youtubeLinkText}>Watch on YouTube</Text>
-              </TouchableOpacity>
-            )}
+
+            <TouchableOpacity
+              style={styles.externalLinkBtn}
+              onPress={handleOpenExternal}
+            >
+              <Feather name="external-link" size={13} color="#c084fc" style={{ marginRight: 4 }} />
+              <Text style={styles.externalLinkText}>Open Stream App</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* 5-Action Toolbar */}
+          {/* 4-Action Toolbar */}
           <View style={styles.actionBar}>
             <TouchableOpacity
               style={[styles.actionBtn, liked && styles.activeActionBtn]}
@@ -377,9 +426,7 @@ export default function VideoDetailScreen() {
 
           {/* Comments Section */}
           <View style={styles.commentsSection}>
-            <Text style={styles.commentsTitle}>
-              Comments ({comments.length})
-            </Text>
+            <Text style={styles.commentsTitle}>Comments ({comments.length})</Text>
 
             <View style={styles.commentInputRow}>
               <TextInput
@@ -401,9 +448,7 @@ export default function VideoDetailScreen() {
             {comments.map((c) => (
               <View key={c.id} style={styles.commentCard}>
                 <View style={styles.commentHeader}>
-                  <Text style={styles.commentAuthor}>
-                    {c.user?.name || 'Viewer'}
-                  </Text>
+                  <Text style={styles.commentAuthor}>{c.user?.name || 'Viewer'}</Text>
                 </View>
                 <Text style={styles.commentBody}>{c.body}</Text>
               </View>
@@ -425,6 +470,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a0f',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    color: '#94a3b8',
+    marginTop: 12,
+    fontSize: 14,
   },
   errorText: {
     color: '#ef4444',
@@ -493,10 +543,30 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     backgroundColor: '#000000',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   videoPlayer: {
     width: '100%',
     height: '100%',
+  },
+  centralPlayBtn: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  playGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoSection: {
     paddingHorizontal: 20,
@@ -519,18 +589,18 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 13,
   },
-  youtubeLinkBtn: {
+  externalLinkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#161622',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#242436',
+    borderColor: 'rgba(168, 85, 247, 0.4)',
   },
-  youtubeLinkText: {
-    color: '#cbd5e1',
+  externalLinkText: {
+    color: '#c084fc',
     fontSize: 11,
     fontWeight: '600',
   },

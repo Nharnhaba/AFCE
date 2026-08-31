@@ -41,6 +41,7 @@ export default function MusicTab() {
     durationMillis: 0,
     isLoading: false,
     currentTrackId: null,
+    currentTrack: null,
   });
 
   useEffect(() => {
@@ -104,7 +105,12 @@ export default function MusicTab() {
 
   const handleInlinePlay = async (track: StreamingTrack) => {
     if (track.audio_url) {
-      await playTrack(track.id, track.audio_url);
+      await playTrack(track.id, track.audio_url, {
+        title: track.title,
+        artist: track.artist,
+        cover_art_url: track.cover_art_url,
+        duration: track.duration,
+      });
     } else {
       router.push({ pathname: '/music/[id]', params: { id: track.id } } as any);
     }

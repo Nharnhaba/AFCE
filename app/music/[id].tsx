@@ -42,6 +42,7 @@ export default function TrackDetailScreen() {
     durationMillis: 0,
     isLoading: false,
     currentTrackId: null,
+    currentTrack: null,
   });
 
   useEffect(() => {
@@ -70,7 +71,12 @@ export default function TrackDetailScreen() {
             setLikesCount(liveData.likes_count || 140);
             // Auto play streaming track
             if (liveData.audio_url) {
-              await playTrack(liveData.id, liveData.audio_url);
+              await playTrack(liveData.id, liveData.audio_url, {
+                title: liveData.title,
+                artist: liveData.artist,
+                cover_art_url: liveData.cover_art_url,
+                duration: liveData.duration,
+              });
             }
           }
         }
@@ -89,7 +95,12 @@ export default function TrackDetailScreen() {
     if (playbackState.currentTrackId === track.id) {
       await togglePlayPause();
     } else if (track.audio_url) {
-      await playTrack(track.id, track.audio_url);
+      await playTrack(track.id, track.audio_url, {
+        title: track.title,
+        artist: track.artist,
+        cover_art_url: track.cover_art_url,
+        duration: track.duration,
+      });
     }
   };
 

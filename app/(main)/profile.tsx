@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { clearAuthToken, getCurrentUser } from '../../src/services/api';
+import MovingBackground from '../../src/components/MovingBackground';
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -32,6 +34,13 @@ export default function ProfileTab() {
 
   return (
     <View style={styles.container}>
+      <MovingBackground type="all" direction="diagonal" opacity={0.45} />
+
+      <LinearGradient
+        colors={['rgba(10,10,15,0.25)', '#0a0a0f']}
+        style={StyleSheet.absoluteFill}
+      />
+
       <View style={styles.avatarCircle}>
         <Text style={styles.avatarText}>{initial}</Text>
       </View>

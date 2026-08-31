@@ -34,7 +34,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       {/* Background Wallpaper Grid */}
-      <MovingBackground opacity={0.85} speedMultiplier={0.7} />
+      <MovingBackground type="onboarding" direction="vertical" opacity={0.7} />
 
       {/* Dark overlay for readability */}
       <LinearGradient

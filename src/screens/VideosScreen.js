@@ -41,10 +41,10 @@ export default function VideosScreen() {
 
   return (
     <View style={styles.container}>
-      <MovingBackground type="video" opacity={0.25} />
+      <MovingBackground type="video" direction="horizontal" opacity={0.45} />
       
       <LinearGradient
-        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.25)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 

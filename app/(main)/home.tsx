@@ -58,10 +58,10 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <MovingBackground type="all" opacity={0.25} />
+      <MovingBackground type="all" direction="diagonal" opacity={0.45} />
 
       <LinearGradient
-        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.25)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 

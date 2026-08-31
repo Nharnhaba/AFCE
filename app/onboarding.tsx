@@ -10,7 +10,7 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       {/* Background Animated Video Grid */}
-      <MovingBackground opacity={0.85} speedMultiplier={1.0} />
+      <MovingBackground type="onboarding" direction="vertical" opacity={0.9} />
 
       {/* Premium dark gradient overlay */}
       <LinearGradient

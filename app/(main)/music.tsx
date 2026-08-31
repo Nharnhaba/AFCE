@@ -34,10 +34,10 @@ export default function MusicTab() {
 
   return (
     <View style={styles.container}>
-      <MovingBackground type="music" opacity={0.25} />
+      <MovingBackground type="music" direction="circular" opacity={0.45} />
 
       <LinearGradient
-        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.25)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 

@@ -34,10 +34,10 @@ export default function NewsTab() {
 
   return (
     <View style={styles.container}>
-      <MovingBackground type="article" opacity={0.25} />
+      <MovingBackground type="article" direction="vertical" opacity={0.45} />
 
       <LinearGradient
-        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.25)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 

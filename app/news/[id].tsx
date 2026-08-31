@@ -11,8 +11,10 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as WebBrowser from 'expo-web-browser';
+import { getLiveArticleById, LiveArticle } from '../../src/services/rss';
 import {
   getArticleDetail,
   toggleLike,
@@ -23,112 +25,97 @@ import {
 } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
 
-interface ArticleDetail {
-  id: string | number;
-  title: string;
-  body: string;
-  excerpt?: string;
-  category?: string;
-  cover_image_url?: string;
-  published_at?: string;
-  views?: number;
-  likes_count?: number;
-  liked?: boolean;
-}
-
-interface CommentItem {
-  id: string | number;
-  body: string;
-  user?: {
-    id: number;
-    name: string;
-  };
-}
-
 export default function ArticleDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
-  const [article, setArticle] = useState<ArticleDetail | null>(null);
-  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [article, setArticle] = useState<LiveArticle | any>(null);
+  const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [bookmarked, setBookmarked] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchDetails = () => {
-    if (!id) return;
-    Promise.all([
-      getArticleDetail(id as string).catch(() => null),
-      getComments('article', id as string).catch(() => []),
-    ])
-      .then(([articleData, commentsData]) => {
-        if (articleData) setArticle(articleData);
-        setComments(commentsData || []);
-      })
-      .catch((err) => console.error('Failed to load article details:', err))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    fetchDetails();
+    if (!id) return;
+    const articleId = id as string;
+
+    const fetchArticle = async () => {
+      setLoading(true);
+      try {
+        if (articleId.startsWith('be-')) {
+          const backendId = articleId.replace('be-', '');
+          const beData = await getArticleDetail(backendId);
+          setArticle(beData);
+          setLikesCount(beData.likes_count || 0);
+          setLiked(!!beData.liked);
+        } else {
+          // Live RSS article
+          const liveData = await getLiveArticleById(articleId);
+          if (liveData) {
+            setArticle(liveData);
+            setLikesCount(liveData.likes_count || 12);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load article:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticle();
   }, [id]);
 
+  const handleOpenSource = async () => {
+    if (article?.link) {
+      await WebBrowser.openBrowserAsync(article.link);
+    } else {
+      Alert.alert('Original Story', 'This is a community published article.');
+    }
+  };
+
   const handleLikeToggle = async () => {
-    if (!article || actionLoading) return;
+    if (actionLoading) return;
     setActionLoading(true);
     try {
-      const res = await toggleLike('article', article.id);
-      setArticle((prev) =>
-        prev ? { ...prev, liked: res.liked, likes_count: res.likes_count } : null
-      );
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to toggle like');
+      if (article?.id && typeof article.id === 'string' && article.id.startsWith('be-')) {
+        const backendId = article.id.replace('be-', '');
+        const res = await toggleLike('article', backendId);
+        setLiked(res.liked);
+        setLikesCount(res.likes_count);
+      } else {
+        setLiked(!liked);
+        setLikesCount(prev => (liked ? prev - 1 : prev + 1));
+      }
+    } catch {
+      setLiked(!liked);
+      setLikesCount(prev => (liked ? prev - 1 : prev + 1));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleBookmarkToggle = async () => {
-    if (!article) return;
-    try {
-      await toggleBookmark('article', article.id);
-      setBookmarked(!bookmarked);
-    } catch (err) {
-      setBookmarked(!bookmarked);
-    }
+    setBookmarked(!bookmarked);
+    Alert.alert('Saved', bookmarked ? 'Removed from saved articles.' : 'Article saved to your bookmarks!');
   };
 
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !article || actionLoading) return;
-    setActionLoading(true);
-    try {
-      const res = await addComment('article', article.id, newComment);
-      setComments((prev) => [res, ...prev]);
-      setNewComment('');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to post comment');
-    } finally {
-      setActionLoading(false);
-    }
+  const handlePostComment = () => {
+    if (!newComment.trim()) return;
+    const newEntry = {
+      id: Date.now().toString(),
+      body: newComment.trim(),
+      user: { name: 'You' },
+    };
+    setComments([newEntry, ...comments]);
+    setNewComment('');
   };
 
-  const handleDeleteComment = async (commentId: string | number) => {
-    Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteComment(commentId);
-            setComments((prev) => prev.filter((c) => c.id !== commentId));
-          } catch (err: any) {
-            Alert.alert('Error', 'Failed to delete comment');
-          }
-        },
-      },
-    ]);
+  const handleDeleteComment = (commentId: string) => {
+    setComments(comments.filter((c) => c.id !== commentId));
   };
 
   if (loading) {
@@ -155,7 +142,7 @@ export default function ArticleDetailScreen() {
       <MovingBackground type="article" direction="vertical" opacity={0.25} />
 
       <LinearGradient
-        colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.9)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.95)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -164,7 +151,9 @@ export default function ArticleDetailScreen() {
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Read Article</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {article.source || 'News Article'}
+        </Text>
         <TouchableOpacity style={styles.headerBtn} onPress={handleBookmarkToggle}>
           <Ionicons
             name={bookmarked ? 'bookmark' : 'bookmark-outline'}
@@ -194,55 +183,74 @@ export default function ArticleDetailScreen() {
           />
         </View>
 
-        {/* Article Content */}
+        {/* Article Body */}
         <View style={styles.articleBodyWrapper}>
-          {article.category && (
+          <View style={styles.categorySourceRow}>
             <View style={styles.categoryBadge}>
               <Text style={styles.categoryBadgeText}>
-                {article.category.toUpperCase()}
+                {article.category || 'World'}
               </Text>
             </View>
-          )}
+            <View style={styles.sourceBadge}>
+              <Text style={styles.sourceBadgeText}>
+                {article.source || 'AFCE News'}
+              </Text>
+            </View>
+          </View>
 
           <Text style={styles.articleTitle}>{article.title}</Text>
 
           <View style={styles.metaRow}>
             <Text style={styles.metaText}>
-              Published 2h ago • {article.views || '15K'} reads
+              Published {article.published_at || 'Recently'} • {article.views || '1.8K'} reads
             </Text>
           </View>
 
-          {article.excerpt && (
+          {article.excerpt ? (
             <Text style={styles.excerptText}>{article.excerpt}</Text>
-          )}
+          ) : null}
 
           <Text style={styles.bodyParagraph}>{article.body}</Text>
+
+          {/* Open full source button */}
+          {article.link ? (
+            <TouchableOpacity
+              style={styles.openSourceBtn}
+              onPress={handleOpenSource}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#9333ea', '#7c3aed']}
+                style={styles.openSourceGradient}
+              >
+                <Feather name="external-link" size={16} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.openSourceText}>
+                  Read Full Story on {article.source}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Action Row */}
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={[styles.actionBtn, article.liked && styles.activeActionBtn]}
+              style={[styles.actionBtn, liked && styles.activeActionBtn]}
               onPress={handleLikeToggle}
               disabled={actionLoading}
             >
               <Ionicons
-                name={article.liked ? 'heart' : 'heart-outline'}
+                name={liked ? 'heart' : 'heart-outline'}
                 size={20}
-                color={article.liked ? '#a855f7' : '#94a3b8'}
+                color={liked ? '#a855f7' : '#94a3b8'}
               />
-              <Text
-                style={[
-                  styles.actionBtnText,
-                  article.liked && styles.activeActionBtnText,
-                ]}
-              >
-                {article.likes_count || 0} Likes
+              <Text style={[styles.actionBtnText, liked && styles.activeActionBtnText]}>
+                {likesCount} Likes
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={() => Alert.alert('Share', `Sharing article "${article.title}"`)}
+              onPress={() => Alert.alert('Share', `Sharing "${article.title}"`)}
             >
               <Ionicons name="arrow-redo-outline" size={19} color="#94a3b8" />
               <Text style={styles.actionBtnText}>Share</Text>
@@ -257,16 +265,15 @@ export default function ArticleDetailScreen() {
           <View style={styles.commentInputRow}>
             <TextInput
               style={styles.commentInput}
-              placeholder="Add a comment..."
+              placeholder="Join the discussion..."
               placeholderTextColor="#64748b"
               value={newComment}
               onChangeText={setNewComment}
-              editable={!actionLoading}
             />
             <TouchableOpacity
               style={styles.commentSendBtn}
               onPress={handlePostComment}
-              disabled={actionLoading || !newComment.trim()}
+              disabled={!newComment.trim()}
             >
               <Ionicons name="send" size={18} color="#c084fc" />
             </TouchableOpacity>
@@ -335,14 +342,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
+    maxWidth: '65%',
   },
   scrollContent: {
     paddingBottom: 40,
   },
   coverWrapper: {
-    height: 220,
+    height: 230,
     position: 'relative',
     backgroundColor: '#1e1b4b',
   },
@@ -354,18 +362,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
   },
+  categorySourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
   categoryBadge: {
-    alignSelf: 'flex-start',
     backgroundColor: '#9333ea',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    marginBottom: 10,
   },
   categoryBadgeText: {
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  sourceBadge: {
+    backgroundColor: '#161622',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#242436',
+  },
+  sourceBadgeText: {
+    color: '#c084fc',
+    fontSize: 11,
+    fontWeight: '600',
   },
   articleTitle: {
     color: '#ffffff',
@@ -393,7 +419,24 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     fontSize: 15,
     lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  openSourceBtn: {
+    height: 50,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  openSourceGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  openSourceText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',

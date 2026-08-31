@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { getGlobalTrending, getCurrentUser, loadStoredName } from '../../src/services/api';
+import { fetchLiveNews } from '../../src/services/rss';
 import MovingBackground from '../../src/components/MovingBackground';
 
 export default function HomeScreen() {
@@ -32,12 +33,16 @@ export default function HomeScreen() {
     Promise.all([
       getGlobalTrending(undefined, 6).catch(() => null),
       getCurrentUser().catch(() => null),
+      fetchLiveNews('All').catch(() => []),
     ])
-      .then(([trendRes, userRes]) => {
+      .then(([trendRes, userRes, liveNews]) => {
         if (trendRes && trendRes.trending) {
           setTrendingVideos(trendRes.trending.videos || []);
           setTopMusic(trendRes.trending.tracks || []);
-          setTopNews(trendRes.trending.articles || []);
+          const beArticles = trendRes.trending.articles || [];
+          setTopNews(beArticles.length > 0 ? beArticles : liveNews.slice(0, 4));
+        } else if (liveNews && liveNews.length > 0) {
+          setTopNews(liveNews.slice(0, 4));
         }
         if (userRes && userRes.name) {
           setUserName(userRes.name);

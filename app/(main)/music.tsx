@@ -34,10 +34,11 @@ export default function MusicTab() {
 
   return (
     <View style={styles.container}>
-      <MovingBackground type="music" direction="circular" opacity={0.45} />
+      <MovingBackground type="music" direction="circular" opacity={0.65} />
+        <View style={styles.overlay} />
 
       <LinearGradient
-        colors={['rgba(10,10,15,0.25)', '#0a0a0f']}
+        colors={['rgba(30,30,40,0.5)', '#1a1a25']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -84,6 +85,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a35',
   },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
   iconCircle: {
     width: 44,
     height: 44,

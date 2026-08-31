@@ -211,13 +211,14 @@ export default function MovingBackground({
       outputRange: ['-360deg', '0deg'],
     });
 
+    const circleSize = 110;
+    const radius = 145;
+
     return (
-      <Animated.View style={[styles.circularWrapper, { transform: [{ rotate: spin }] }]}>
-        {/* Render a large circular layout of album arts in the background */}
-        <View style={styles.circleGrid}>
+      <View style={styles.circularWrapper}>
+        <Animated.View style={[styles.circleGrid, { transform: [{ rotate: spin }] }]}>
           {images.slice(0, 8).map((uri, idx) => {
             const angle = (idx * 360) / 8;
-            const radius = 120;
             const x = radius * Math.cos((angle * Math.PI) / 180);
             const y = radius * Math.sin((angle * Math.PI) / 180);
 
@@ -228,18 +229,21 @@ export default function MovingBackground({
                 style={[
                   styles.circleCard,
                   {
-                    left: SCREEN_WIDTH / 2 + x - 40,
-                    top: SCREEN_HEIGHT / 3 + y - 40,
+                    left: 200 + x - circleSize / 2,
+                    top: 200 + y - circleSize / 2,
+                    width: circleSize,
+                    height: circleSize,
+                    borderRadius: circleSize / 2,
                   },
                 ]}
-                imageStyle={{ borderRadius: 40 }}
+                imageStyle={{ borderRadius: circleSize / 2 }}
               >
                 <View style={styles.vinylCenter} />
               </ImageBackground>
             );
           })}
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </View>
     );
   };
 

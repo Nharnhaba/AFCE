@@ -335,3 +335,29 @@ export async function deleteComment(id: string | number) {
   });
   if (!res.ok) throw new Error('Failed to delete comment');
 }
+
+// --- Profile ---
+export async function getProfile() {
+  const res = await fetch(`${BASE_URL}/api/profile`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch profile');
+  return res.json();
+}
+
+export async function updateProfile(data: { name?: string; email?: string; password?: string; password_confirmation?: string }) {
+  const res = await fetch(`${BASE_URL}/api/profile`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || 'Failed to update profile');
+  }
+  const result = await res.json();
+  if (result.user && result.user.name) {
+    await saveStoredName(result.user.name);
+  }
+  return result;
+}

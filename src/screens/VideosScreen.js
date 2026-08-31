@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getTrendingVideos } from '../services/api';
-
-const CATEGORIES = ['All', 'Tech', 'Music', 'Vlog', 'Gaming'];
+import { getTrendingVideos, getCategories } from '../services/api';
 
 export default function VideosScreen() {
   const router = useRouter();
@@ -11,6 +9,7 @@ export default function VideosScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
+  const [categories, setCategories] = useState(['All']);
   const [sort, setSort] = useState('latest'); // 'latest' or 'trending'
 
   const fetchVideos = () => {
@@ -22,6 +21,17 @@ export default function VideosScreen() {
       .catch(err => console.error('Failed to load videos:', err))
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    getCategories()
+      .then(cats => {
+        if (cats && cats.length > 0) {
+          const capitalized = cats.map(c => c.charAt(0).toUpperCase() + c.slice(1));
+          setCategories(['All', ...capitalized]);
+        }
+      })
+      .catch(err => console.error('Failed to fetch categories:', err));
+  }, []);
 
   useEffect(() => {
     fetchVideos();
@@ -46,7 +56,7 @@ export default function VideosScreen() {
       <View style={styles.categoriesContainer}>
         <FlatList
           horizontal
-          data={CATEGORIES}
+          data={categories}
           showsHorizontalScrollIndicator={false}
           keyExtractor={item => item}
           renderItem={({ item }) => (

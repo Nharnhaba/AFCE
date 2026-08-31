@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, ScrollView, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getTrendingVideos, getTrendingTracks } from '../../src/services/api';
+import { getGlobalTrending } from '../../src/services/api';
 
 interface MediaItem {
   id: string | number;
@@ -18,13 +18,14 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    Promise.all([
-      getTrendingVideos(undefined, undefined, 'trending').catch(() => []),
-      getTrendingTracks(undefined, undefined, 'trending').catch(() => [])
-    ])
-      .then(([videos, tracks]) => {
-        setTrending(videos.slice(0, 5));
-        setTopMusic(tracks.slice(0, 5));
+    getGlobalTrending(undefined, 5)
+      .then(res => {
+        setTrending(res.trending?.videos || []);
+        setTopMusic(res.trending?.tracks || []);
+      })
+      .catch(() => {
+        setTrending([]);
+        setTopMusic([]);
       })
       .finally(() => setLoading(false));
   }, []);

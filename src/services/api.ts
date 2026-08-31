@@ -65,6 +65,46 @@ export async function loginUser(email: string, password: string) {
   return res.json(); // { user, token }
 }
 
+export async function forgotPassword(email: string) {
+  const res = await fetch(`${BASE_URL}/api/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || 'Password reset request failed');
+  return res.json();
+}
+
+export async function resetPassword(email: string, token: string, password: string, passwordConfirmation: string) {
+  const res = await fetch(`${BASE_URL}/api/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, token, password, password_confirmation: passwordConfirmation }),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || 'Password reset failed');
+  return res.json();
+}
+
+// --- Metadata / Categories ---
+export async function getCategories() {
+  const res = await fetch(`${BASE_URL}/api/categories`);
+  const json = await res.json();
+  return json.categories; // string[]
+}
+
+export async function getGenres() {
+  const res = await fetch(`${BASE_URL}/api/genres`);
+  const json = await res.json();
+  return json.genres; // string[]
+}
+
+export async function getGlobalTrending(type?: 'video' | 'track' | 'article', limit = 5) {
+  let url = `${BASE_URL}/api/trending?limit=${limit}`;
+  if (type) url += `&type=${type}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
 // --- Videos ---
 export async function getTrendingVideos(search?: string, category?: string, sort?: string) {
   let url = `${BASE_URL}/api/videos?`;

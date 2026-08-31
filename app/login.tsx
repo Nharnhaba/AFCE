@@ -1,7 +1,9 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { loginUser, saveAuthToken } from '../src/services/api';
+import MovingBackground from '../src/components/MovingBackground';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -31,55 +33,67 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
-      <Text style={styles.subtitle}>Log in to continue</Text>
+      {/* Background Wallpaper Grid */}
+      <MovingBackground opacity={0.85} speedMultiplier={0.7} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email or Username"
-        placeholderTextColor="#666"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        editable={!loading}
+      {/* Dark overlay for readability */}
+      <LinearGradient
+        colors={['rgba(10,10,15,0.1)', 'rgba(10,10,15,0.45)', '#0a0a0f']}
+        style={StyleSheet.absoluteFill}
       />
 
-      <View style={styles.passwordWrapper}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Log in to continue</Text>
+
         <TextInput
-          style={styles.passwordInput}
-          placeholder="Password"
+          style={styles.input}
+          placeholder="Email or Username"
           placeholderTextColor="#666"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
           editable={!loading}
         />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading}>
-          <Text style={styles.toggleText}>{showPassword ? 'Hide' : 'Show'}</Text>
+
+        <View style={styles.passwordWrapper}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password"
+            placeholderTextColor="#666"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            editable={!loading}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading}>
+            <Text style={styles.toggleText}>{showPassword ? 'Hide' : 'Show'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
         </TouchableOpacity>
+
+        <Link href="/signup" style={styles.link} asChild>
+          <TouchableOpacity disabled={loading}>
+            <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkAccent}>Sign Up</Text></Text>
+          </TouchableOpacity>
+        </Link>
       </View>
-
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
-      </TouchableOpacity>
-
-      <Link href="/signup" style={styles.link} asChild>
-        <TouchableOpacity disabled={loading}>
-          <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkAccent}>Sign Up</Text></Text>
-        </TouchableOpacity>
-      </Link>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0f', justifyContent: 'center', padding: 24 },
-  title: { color: '#fff', fontSize: 26, fontWeight: '600', marginBottom: 4 },
-  subtitle: { color: '#888', marginBottom: 32 },
+  container: { flex: 1, backgroundColor: '#0a0a0f' },
+  content: { flex: 1, justifyContent: 'center', padding: 24, zIndex: 1 },
+  title: { color: '#fff', fontSize: 28, fontWeight: '700', marginBottom: 4 },
+  subtitle: { color: '#888', marginBottom: 32, fontSize: 15 },
   input: {
     backgroundColor: '#1a1a22', color: '#fff', padding: 14, borderRadius: 10, marginBottom: 16,
   },

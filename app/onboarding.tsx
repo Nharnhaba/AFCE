@@ -1,45 +1,105 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MovingBackground from '../src/components/MovingBackground';
+
+const { width } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      {/* Background Animated Video Grid */}
-      <MovingBackground type="onboarding" direction="vertical" opacity={0.9} />
+      {/* Dynamic Background */}
+      <MovingBackground type="onboarding" direction="vertical" opacity={0.6} />
 
-      {/* Premium dark gradient overlay */}
+      {/* Dark gradient overlay */}
       <LinearGradient
-        colors={['rgba(10,10,15,0.1)', 'rgba(10,10,15,0.45)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.8)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Foreground Content */}
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <LinearGradient
-            colors={['#c084fc', '#a855f7']}
-            style={styles.logoBadge}
-          >
-            <Ionicons name="play" size={32} color="#fff" />
-          </LinearGradient>
-          <Text style={styles.brandName}>AFCE</Text>
+        {/* Header Text */}
+        <View style={styles.headerBlock}>
+          <Text style={styles.titleLine}>Discover.</Text>
+          <Text style={styles.titleLine}>Stream.</Text>
+          <Text style={[styles.titleLine, styles.titleAccent]}>Enjoy.</Text>
+          <Text style={styles.subtitle}>All your favorite content in one place.</Text>
         </View>
 
-        <Text style={styles.title}>Discover. Stream. Enjoy.</Text>
-        <Text style={styles.subtitle}>
-          Your ultimate digital destination for videos, premium music, and global updates.
-        </Text>
+        {/* 3D Floating Cards Display */}
+        <View style={styles.cardsContainer}>
+          {/* Card 1: Music Card */}
+          <LinearGradient
+            colors={['#8b5cf6', '#6d28d9']}
+            style={[styles.floatingCard, styles.musicCard]}
+          >
+            <Ionicons name="musical-notes" size={28} color="#fff" />
+            <View style={styles.cardLines}>
+              <View style={[styles.cardLine, { width: 30 }]} />
+              <View style={[styles.cardLine, { width: 20, opacity: 0.6 }]} />
+            </View>
+          </LinearGradient>
 
-        <TouchableOpacity 
-          style={styles.button} 
+          {/* Card 2: Main Video Player Card */}
+          <LinearGradient
+            colors={['#1e1b4b', '#312e81']}
+            style={[styles.floatingCard, styles.videoCard]}
+          >
+            <View style={styles.videoPlayCircle}>
+              <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 3 }} />
+            </View>
+            <Text style={styles.videoDurationBadge}>4:20</Text>
+          </LinearGradient>
+
+          {/* Card 3: Article / Chat Card */}
+          <LinearGradient
+            colors={['#4c1d95', '#581c87']}
+            style={[styles.floatingCard, styles.articleCard]}
+          >
+            <Ionicons name="newspaper-outline" size={22} color="#c084fc" />
+          </LinearGradient>
+
+          {/* Card 4: Wave Card */}
+          <LinearGradient
+            colors={['#701a75', '#86198f']}
+            style={[styles.floatingCard, styles.waveCard]}
+          >
+            <MaterialCommunityIcons name="waveform" size={24} color="#f472b6" />
+          </LinearGradient>
+        </View>
+
+        {/* Pagination Dots */}
+        <View style={styles.dotsRow}>
+          <View style={[styles.dot, styles.activeDot]} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
+        </View>
+
+        {/* Action Buttons */}
+        <TouchableOpacity
+          style={styles.getStartedButton}
+          onPress={() => router.push('/login')}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={['#9333ea', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientButton}
+          >
+            <Text style={styles.getStartedText}>Get Started</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.skipButton}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.buttonText}>Get Started</Text>
+          <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -47,57 +107,163 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0f' },
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0f',
+  },
   content: {
     flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 60,
+    paddingHorizontal: 28,
+    paddingTop: 70,
+    paddingBottom: 40,
+    justifyContent: 'space-between',
+    zIndex: 1,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
+  headerBlock: {
+    alignItems: 'flex-start',
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  brandName: {
-    color: '#fff',
-    fontSize: 24,
+  titleLine: {
+    color: '#ffffff',
+    fontSize: 34,
     fontWeight: '800',
-    letterSpacing: 2,
+    lineHeight: 40,
+    letterSpacing: -0.5,
   },
-  title: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 12,
+  titleAccent: {
+    color: '#ec4899',
   },
   subtitle: {
-    color: '#aaa',
+    color: '#94a3b8',
     fontSize: 15,
-    textAlign: 'center',
+    marginTop: 12,
+    fontWeight: '400',
     lineHeight: 22,
-    marginBottom: 40,
-    paddingHorizontal: 16,
   },
-  button: {
-    backgroundColor: '#a855f7',
-    paddingVertical: 15,
+  cardsContainer: {
+    height: 220,
     width: '100%',
-    borderRadius: 14,
+    position: 'relative',
     alignItems: 'center',
-    shadowColor: '#a855f7',
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    justifyContent: 'center',
+    marginVertical: 20,
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  floatingCard: {
+    position: 'absolute',
+    borderRadius: 18,
+    padding: 14,
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  musicCard: {
+    left: 20,
+    top: 30,
+    width: 80,
+    height: 80,
+    transform: [{ rotate: '-12deg' }],
+    justifyContent: 'space-between',
+  },
+  cardLines: {
+    gap: 4,
+  },
+  cardLine: {
+    height: 3,
+    backgroundColor: '#fff',
+    borderRadius: 2,
+  },
+  videoCard: {
+    right: 30,
+    top: 20,
+    width: 140,
+    height: 95,
+    transform: [{ rotate: '8deg' }],
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  videoPlayCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoDurationBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 8,
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  articleCard: {
+    right: 70,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    transform: [{ rotate: '15deg' }],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waveCard: {
+    left: 60,
+    bottom: 25,
+    width: 70,
+    height: 70,
+    transform: [{ rotate: '-8deg' }],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 24,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#334155',
+  },
+  activeDot: {
+    width: 24,
+    backgroundColor: '#a855f7',
+  },
+  getStartedButton: {
+    width: '100%',
+    height: 54,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  gradientButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  getStartedText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  skipText: {
+    color: '#64748b',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  skipButton: {
+    paddingVertical: 6,
+  },
 });

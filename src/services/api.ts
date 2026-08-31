@@ -361,3 +361,36 @@ export async function updateProfile(data: { name?: string; email?: string; passw
   }
   return result;
 }
+
+// --- Search ---
+export async function searchContent(query: string) {
+  const res = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error('Search failed');
+  return res.json(); // { results: { videos: [], tracks: [], articles: [] } } or similar
+}
+
+// --- Bookmarks ---
+export async function toggleBookmark(type: 'video' | 'track' | 'article', id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/${type}/${id}/bookmark`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to toggle bookmark');
+  return res.json();
+}
+
+export async function getBookmarks() {
+  const res = await fetch(`${BASE_URL}/api/bookmarks`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch bookmarks');
+  return res.json();
+}
+
+// --- Playlists ---
+export async function getPlaylists() {
+  const res = await fetch(`${BASE_URL}/api/playlists`);
+  if (!res.ok) throw new Error('Failed to fetch playlists');
+  const json = await res.json();
+  return json.data || json;
+}

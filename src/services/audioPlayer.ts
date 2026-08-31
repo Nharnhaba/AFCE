@@ -1,4 +1,4 @@
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 
 export interface ActiveTrackInfo {
   id: string | number;
@@ -22,7 +22,8 @@ export interface PlaybackState {
   error?: string | null;
 }
 
-let soundInstance: Audio.Sound | null = null;
+let playerInstance: AudioPlayer | null = null;
+let statusListenerSubscription: { remove: () => void } | null = null;
 let currentTrackUrl: string | null = null;
 let currentTrackId: string | number | null = null;
 let currentTrackMeta: ActiveTrackInfo | null = null;
@@ -51,12 +52,9 @@ export function subscribePlaybackState(callback: (state: PlaybackState) => void)
 
 export async function initAudioMode() {
   try {
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      staysActiveInBackground: true,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
     });
   } catch (err) {
     console.warn('Audio mode init warning:', err);
@@ -102,25 +100,26 @@ export async function playTrack(
       };
     }
 
-    if (currentTrackUrl === audioUrl && soundInstance) {
-      const status = await soundInstance.getStatusAsync();
-      if (status.isLoaded) {
-        if (status.isPlaying) {
-          await soundInstance.pauseAsync();
-        } else {
-          await soundInstance.playAsync();
-        }
-        return;
+    if (currentTrackUrl === audioUrl && playerInstance) {
+      if (playerInstance.playing) {
+        playerInstance.pause();
+      } else {
+        playerInstance.play();
       }
+      return;
     }
 
-    // Stop and unload previous
-    if (soundInstance) {
+    // Release previous player
+    if (playerInstance) {
       try {
-        await soundInstance.stopAsync();
-        await soundInstance.unloadAsync();
+        if (statusListenerSubscription) {
+          statusListenerSubscription.remove();
+          statusListenerSubscription = null;
+        }
+        playerInstance.pause();
+        playerInstance.release();
       } catch {}
-      soundInstance = null;
+      playerInstance = null;
     }
 
     currentState = {
@@ -135,15 +134,31 @@ export async function playTrack(
     currentTrackUrl = audioUrl;
     currentTrackId = trackId;
 
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: audioUrl },
-      { shouldPlay: true, progressUpdateIntervalMillis: 250 },
-      onPlaybackStatusUpdate
-    );
+    const player = createAudioPlayer(audioUrl, { updateInterval: 250 });
+    playerInstance = player;
 
-    soundInstance = sound;
+    statusListenerSubscription = player.addListener('playbackStatusUpdate', (status) => {
+      currentState = {
+        isPlaying: status.playing,
+        positionMillis: Math.floor((status.currentTime || 0) * 1000),
+        durationMillis: Math.floor((status.duration || (currentTrackMeta?.duration ? currentTrackMeta.duration : 30)) * 1000),
+        isLoading: status.isBuffering && !status.playing,
+        currentTrackId,
+        currentTrack: currentTrackMeta,
+        error: null,
+      };
+
+      if (status.didJustFinish) {
+        currentState.isPlaying = false;
+        currentState.positionMillis = 0;
+      }
+
+      notifyListeners();
+    });
+
+    player.play();
   } catch (err: any) {
-    console.error('Failed to play audio stream:', err);
+    console.error('Failed to play audio stream with expo-audio:', err);
     currentState = {
       ...currentState,
       isLoading: false,
@@ -154,48 +169,13 @@ export async function playTrack(
   }
 }
 
-function onPlaybackStatusUpdate(status: AVPlaybackStatus) {
-  if (!status.isLoaded) {
-    if (status.error) {
-      currentState = {
-        ...currentState,
-        isPlaying: false,
-        isLoading: false,
-        error: status.error,
-      };
-      notifyListeners();
-    }
-    return;
-  }
-
-  currentState = {
-    isPlaying: status.isPlaying,
-    positionMillis: status.positionMillis,
-    durationMillis: status.durationMillis || 30000,
-    isLoading: status.isBuffering && !status.isPlaying,
-    currentTrackId,
-    currentTrack: currentTrackMeta,
-    error: null,
-  };
-
-  if (status.didJustFinish) {
-    currentState.isPlaying = false;
-    currentState.positionMillis = 0;
-  }
-
-  notifyListeners();
-}
-
 export async function togglePlayPause() {
-  if (!soundInstance) return;
+  if (!playerInstance) return;
   try {
-    const status = await soundInstance.getStatusAsync();
-    if (status.isLoaded) {
-      if (status.isPlaying) {
-        await soundInstance.pauseAsync();
-      } else {
-        await soundInstance.playAsync();
-      }
+    if (playerInstance.playing) {
+      playerInstance.pause();
+    } else {
+      playerInstance.play();
     }
   } catch (err) {
     console.warn('Play/Pause error:', err);
@@ -203,21 +183,25 @@ export async function togglePlayPause() {
 }
 
 export async function seekTo(millis: number) {
-  if (!soundInstance) return;
+  if (!playerInstance) return;
   try {
-    await soundInstance.setPositionAsync(millis);
+    playerInstance.seekTo(millis / 1000);
   } catch (err) {
     console.warn('Seek error:', err);
   }
 }
 
 export async function stopPlayback() {
-  if (soundInstance) {
+  if (playerInstance) {
     try {
-      await soundInstance.stopAsync();
-      await soundInstance.unloadAsync();
+      if (statusListenerSubscription) {
+        statusListenerSubscription.remove();
+        statusListenerSubscription = null;
+      }
+      playerInstance.pause();
+      playerInstance.release();
     } catch {}
-    soundInstance = null;
+    playerInstance = null;
     currentTrackUrl = null;
     currentTrackId = null;
     currentTrackMeta = null;

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getTrendingTracks } from '../../src/services/api';
+import MovingBackground from '../../src/components/MovingBackground';
 
 interface TrackItem {
   id: string | number;
@@ -32,6 +34,13 @@ export default function MusicTab() {
 
   return (
     <View style={styles.container}>
+      <MovingBackground type="music" opacity={0.25} />
+
+      <LinearGradient
+        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        style={StyleSheet.absoluteFill}
+      />
+
       <Text style={styles.header}>Trending Music</Text>
       <FlatList
         data={tracks}

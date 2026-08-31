@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getTrendingVideos, getCategories } from '../services/api';
+import MovingBackground from '../components/MovingBackground';
 
 export default function VideosScreen() {
   const router = useRouter();
@@ -39,6 +41,13 @@ export default function VideosScreen() {
 
   return (
     <View style={styles.container}>
+      <MovingBackground type="video" opacity={0.25} />
+      
+      <LinearGradient
+        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        style={StyleSheet.absoluteFill}
+      />
+
       <Text style={styles.header}>Videos</Text>
       
       {/* Search Input */}

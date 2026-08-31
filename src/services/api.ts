@@ -24,10 +24,33 @@ export async function saveAuthToken(token: string) {
   }
 }
 
+const NAME_KEY = 'auth_user_name';
+
+export async function loadStoredName() {
+  try {
+    return await SecureStore.getItemAsync(NAME_KEY);
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function saveStoredName(name: string) {
+  try {
+    await SecureStore.setItemAsync(NAME_KEY, name);
+  } catch (err) {}
+}
+
+export async function clearStoredName() {
+  try {
+    await SecureStore.deleteItemAsync(NAME_KEY);
+  } catch (err) {}
+}
+
 export async function clearAuthToken() {
   try {
     authToken = null;
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await clearStoredName();
   } catch (err) {
     console.error('Failed to clear stored token', err);
   }
@@ -52,7 +75,11 @@ export async function registerUser(name: string, email: string, password: string
     body: JSON.stringify({ name, email, password, password_confirmation: passwordConfirmation }),
   });
   if (!res.ok) throw new Error((await res.json()).message || 'Registration failed');
-  return res.json(); // { user, token }
+  const data = await res.json();
+  if (data.user && data.user.name) {
+    await saveStoredName(data.user.name);
+  }
+  return data;
 }
 
 export async function loginUser(email: string, password: string) {
@@ -62,7 +89,11 @@ export async function loginUser(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error((await res.json()).message || 'Login failed');
-  return res.json(); // { user, token }
+  const data = await res.json();
+  if (data.user && data.user.name) {
+    await saveStoredName(data.user.name);
+  }
+  return data;
 }
 
 export async function getCurrentUser() {
@@ -70,7 +101,11 @@ export async function getCurrentUser() {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch user');
-  return res.json();
+  const user = await res.json();
+  if (user && user.name) {
+    await saveStoredName(user.name);
+  }
+  return user;
 }
 
 export async function forgotPassword(email: string) {

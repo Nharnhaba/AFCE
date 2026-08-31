@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, ScrollView, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getGlobalTrending } from '../../src/services/api';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getGlobalTrending, getCurrentUser, loadStoredName } from '../../src/services/api';
+import MovingBackground from '../../src/components/MovingBackground';
 
 interface MediaItem {
   id: string | number;
@@ -14,25 +16,34 @@ export default function HomeScreen() {
   const router = useRouter();
   const [trending, setTrending] = useState<MediaItem[]>([]);
   const [topMusic, setTopMusic] = useState<MediaItem[]>([]);
+  const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    getGlobalTrending(undefined, 5)
-      .then(res => {
-        setTrending(res.trending?.videos || []);
-        setTopMusic(res.trending?.tracks || []);
-      })
-      .catch(() => {
-        setTrending([]);
-        setTopMusic([]);
+    // Load stored user name instantly for immediate greeting render
+    loadStoredName().then(name => {
+      if (name) setUserName(name);
+    });
+
+    Promise.all([
+      getGlobalTrending(undefined, 5).catch(() => null),
+      getCurrentUser().catch(() => null)
+    ])
+      .then(([trendRes, userRes]) => {
+        if (trendRes) {
+          setTrending(trendRes.trending?.videos || []);
+          setTopMusic(trendRes.trending?.tracks || []);
+        }
+        if (userRes && userRes.name) {
+          setUserName(userRes.name);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
 
   const handleSearchSubmit = () => {
     if (search.trim()) {
-      // Redirect to videos tab with search parameter or just push to search page
       router.push(`/videos?search=${encodeURIComponent(search)}`);
     }
   };
@@ -46,60 +57,70 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.greeting}>Hi, Tino 👋</Text>
-      <Text style={styles.subtitle}>Good to see you again</Text>
+    <View style={styles.container}>
+      <MovingBackground type="all" opacity={0.25} />
 
-      <TextInput
-        style={styles.search}
-        placeholder="Search for videos, music..."
-        placeholderTextColor="#666"
-        value={search}
-        onChangeText={setSearch}
-        onSubmitEditing={handleSearchSubmit}
-        returnKeyType="search"
+      <LinearGradient
+        colors={['rgba(10,10,15,0.4)', '#0a0a0f']}
+        style={StyleSheet.absoluteFill}
       />
 
-      <Text style={styles.sectionTitle}>🔥 Trending Now</Text>
-      <FlatList
-        horizontal
-        data={trending}
-        keyExtractor={item => item.id.toString()}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.greeting}>Hi, {userName || 'User'} 👋</Text>
+        <Text style={styles.subtitle}>Good to see you again</Text>
+
+        <TextInput
+          style={styles.search}
+          placeholder="Search for videos, music..."
+          placeholderTextColor="#666"
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={handleSearchSubmit}
+          returnKeyType="search"
+        />
+
+        <Text style={styles.sectionTitle}>🔥 Trending Now</Text>
+        <FlatList
+          horizontal
+          data={trending}
+          keyExtractor={item => item.id.toString()}
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.trendingCard}
+              onPress={() => router.push(`/video/${item.id}` as any)}
+            >
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.cardMeta}>{item.duration || '0:00'}</Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No trending videos yet</Text>
+          }
+        />
+
+        <Text style={styles.sectionTitle}>🎵 Top Music</Text>
+        {topMusic.map(track => (
           <TouchableOpacity 
-            style={styles.trendingCard}
-            onPress={() => router.push(`/video/${item.id}` as any)}
+            key={track.id} 
+            style={styles.musicRow}
+            onPress={() => router.push(`/music/${track.id}` as any)}
           >
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.cardMeta}>{item.duration || '0:00'}</Text>
+            <Text style={styles.cardTitle}>{track.title}</Text>
+            <Text style={styles.cardMeta}>{track.artist || 'Unknown'} · {track.duration || '0:00'}</Text>
           </TouchableOpacity>
+        ))}
+        {topMusic.length === 0 && (
+          <Text style={styles.emptyText}>No top music yet</Text>
         )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No trending videos</Text>
-        }
-      />
-
-      <Text style={styles.sectionTitle}>🎵 Top Music</Text>
-      {topMusic.map(track => (
-        <TouchableOpacity 
-          key={track.id} 
-          style={styles.musicRow}
-          onPress={() => router.push(`/music/${track.id}` as any)}
-        >
-          <Text style={styles.cardTitle}>{track.title}</Text>
-          <Text style={styles.cardMeta}>{track.artist || 'Unknown'} · {track.duration || '0:00'}</Text>
-        </TouchableOpacity>
-      ))}
-      {topMusic.length === 0 && (
-        <Text style={styles.emptyText}>No top music</Text>
-      )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0f', padding: 20 },
+  container: { flex: 1, backgroundColor: '#0a0a0f' },
+  scrollContent: { padding: 20, paddingTop: 40 },
   greeting: { color: '#fff', fontSize: 22, fontWeight: '600', marginTop: 12 },
   subtitle: { color: '#888', marginBottom: 20 },
   search: { backgroundColor: '#1a1a22', color: '#fff', padding: 12, borderRadius: 10, marginBottom: 24 },

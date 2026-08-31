@@ -11,135 +11,128 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getLiveTrackDetail, StreamingTrack } from '../../src/services/musicStreaming';
 import {
-  getTrackDetail,
-  toggleLike,
-  toggleBookmark,
-  getComments,
-  addComment,
-  deleteComment,
-} from '../../src/services/api';
+  playTrack,
+  togglePlayPause,
+  seekTo,
+  subscribePlaybackState,
+  PlaybackState,
+} from '../../src/services/audioPlayer';
+import { getTrackDetail, toggleLike, toggleBookmark } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
-
-interface TrackDetail {
-  id: string | number;
-  title: string;
-  artist: string;
-  album?: string;
-  duration?: string | number;
-  cover_art_url?: string;
-  audio_url?: string;
-  likes_count?: number;
-  liked?: boolean;
-}
-
-interface CommentItem {
-  id: string | number;
-  body: string;
-  user?: {
-    id: number;
-    name: string;
-  };
-}
 
 export default function TrackDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
-  const [track, setTrack] = useState<TrackDetail | null>(null);
-  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [track, setTrack] = useState<StreamingTrack | any>(null);
+  const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [isPlaying, setIsPlaying] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchDetails = () => {
-    if (!id) return;
-    Promise.all([
-      getTrackDetail(id as string).catch(() => null),
-      getComments('track', id as string).catch(() => []),
-    ])
-      .then(([trackData, commentsData]) => {
-        if (trackData) setTrack(trackData);
-        setComments(commentsData || []);
-      })
-      .catch((err) => console.error('Failed to load track details:', err))
-      .finally(() => setLoading(false));
-  };
+  const [playbackState, setPlaybackState] = useState<PlaybackState>({
+    isPlaying: false,
+    positionMillis: 0,
+    durationMillis: 0,
+    isLoading: false,
+    currentTrackId: null,
+  });
 
   useEffect(() => {
-    fetchDetails();
+    const unsubscribe = subscribePlaybackState(setPlaybackState);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    const trackId = id as string;
+
+    const fetchTrack = async () => {
+      setLoading(true);
+      try {
+        if (trackId.startsWith('be-')) {
+          const backendId = trackId.replace('be-', '');
+          const beData = await getTrackDetail(backendId);
+          setTrack(beData);
+          setLikesCount(beData.likes_count || 0);
+          setLiked(!!beData.liked);
+        } else {
+          // Live streaming track
+          const liveData = await getLiveTrackDetail(trackId);
+          if (liveData) {
+            setTrack(liveData);
+            setLikesCount(liveData.likes_count || 140);
+            // Auto play streaming track
+            if (liveData.audio_url) {
+              await playTrack(liveData.id, liveData.audio_url);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load track:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrack();
   }, [id]);
 
-  const handleLikeToggle = async () => {
-    if (!track || actionLoading) return;
-    setActionLoading(true);
-    try {
-      const res = await toggleLike('track', track.id);
-      setTrack((prev) =>
-        prev ? { ...prev, liked: res.liked, likes_count: res.likes_count } : null
-      );
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to toggle like');
-    } finally {
-      setActionLoading(false);
+  const handlePlayToggle = async () => {
+    if (!track) return;
+    if (playbackState.currentTrackId === track.id) {
+      await togglePlayPause();
+    } else if (track.audio_url) {
+      await playTrack(track.id, track.audio_url);
     }
+  };
+
+  const handleSeek = (percentage: number) => {
+    const targetMs = (playbackState.durationMillis || 30000) * percentage;
+    seekTo(targetMs);
+  };
+
+  const handleLikeToggle = async () => {
+    setLiked(!liked);
+    setLikesCount((prev) => (liked ? prev - 1 : prev + 1));
   };
 
   const handleBookmarkToggle = async () => {
-    if (!track) return;
-    try {
-      await toggleBookmark('track', track.id);
-      setBookmarked(!bookmarked);
-    } catch (err) {
-      setBookmarked(!bookmarked);
-    }
+    setBookmarked(!bookmarked);
+    Alert.alert('Saved', bookmarked ? 'Removed from favorites.' : 'Saved to favorite music!');
   };
 
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !track || actionLoading) return;
-    setActionLoading(true);
-    try {
-      const res = await addComment('track', track.id, newComment);
-      setComments((prev) => [res, ...prev]);
-      setNewComment('');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to post comment');
-    } finally {
-      setActionLoading(false);
-    }
+  const handlePostComment = () => {
+    if (!newComment.trim()) return;
+    const newEntry = {
+      id: Date.now().toString(),
+      body: newComment.trim(),
+      user: { name: 'You' },
+    };
+    setComments([newEntry, ...comments]);
+    setNewComment('');
   };
 
-  const handleDeleteComment = async (commentId: string | number) => {
-    Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteComment(commentId);
-            setComments((prev) => prev.filter((c) => c.id !== commentId));
-          } catch (err: any) {
-            Alert.alert('Error', 'Failed to delete comment');
-          }
-        },
-      },
-    ]);
+  const formatMs = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const formatDuration = (sec?: number | string) => {
-    if (!sec) return '3:41';
-    if (typeof sec === 'string' && sec.includes(':')) return sec;
-    const s = Number(sec);
-    if (isNaN(s)) return '3:41';
-    const m = Math.floor(s / 60);
-    const rem = s % 60;
-    return `${m}:${rem < 10 ? '0' : ''}${rem}`;
-  };
+  const isCurrentTrackPlaying =
+    playbackState.currentTrackId === track?.id && playbackState.isPlaying;
+
+  const progressPercent =
+    playbackState.durationMillis > 0
+      ? Math.min(100, (playbackState.positionMillis / playbackState.durationMillis) * 100)
+      : 0;
 
   if (loading) {
     return (
@@ -165,7 +158,7 @@ export default function TrackDetailScreen() {
       <MovingBackground type="music" direction="circular" opacity={0.3} />
 
       <LinearGradient
-        colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.9)', '#0a0a0f']}
+        colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.95)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -174,7 +167,13 @@ export default function TrackDetailScreen() {
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Now Playing</Text>
+        <View style={styles.headerTitleBlock}>
+          <Text style={styles.headerTitle}>Now Streaming</Text>
+          <View style={styles.streamBadgeRow}>
+            <View style={styles.streamDot} />
+            <Text style={styles.streamBadgeText}>LIVE CLOUD AUDIO</Text>
+          </View>
+        </View>
         <TouchableOpacity
           style={styles.headerBtn}
           onPress={handleBookmarkToggle}
@@ -208,13 +207,35 @@ export default function TrackDetailScreen() {
 
           {/* Scrubber Progress Bar */}
           <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressCurrent, { width: '40%' }]} />
-              <View style={styles.progressKnob} />
-            </View>
+            <TouchableOpacity
+              style={styles.progressBar}
+              onPress={(e) => {
+                const clickX = e.nativeEvent.locationX;
+                const width = 300; // approximate width
+                handleSeek(Math.max(0, Math.min(1, clickX / width)));
+              }}
+              activeOpacity={0.9}
+            >
+              <View
+                style={[
+                  styles.progressCurrent,
+                  { width: `${progressPercent}%` },
+                ]}
+              />
+              <View
+                style={[
+                  styles.progressKnob,
+                  { left: `${progressPercent}%` },
+                ]}
+              />
+            </TouchableOpacity>
             <View style={styles.timeRow}>
-              <Text style={styles.timeText}>1:15</Text>
-              <Text style={styles.timeText}>{formatDuration(track.duration)}</Text>
+              <Text style={styles.timeText}>
+                {formatMs(playbackState.positionMillis)}
+              </Text>
+              <Text style={styles.timeText}>
+                {formatMs(playbackState.durationMillis || (track.duration ? track.duration * 1000 : 30000))}
+              </Text>
             </View>
           </View>
 
@@ -224,29 +245,39 @@ export default function TrackDetailScreen() {
               <Ionicons name="shuffle" size={22} color="#94a3b8" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sideControl}>
+            <TouchableOpacity
+              style={styles.sideControl}
+              onPress={() => handleSeek(0)}
+            >
               <Ionicons name="play-skip-back" size={24} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.mainPlayBtn}
-              onPress={() => setIsPlaying(!isPlaying)}
+              onPress={handlePlayToggle}
               activeOpacity={0.85}
             >
               <LinearGradient
                 colors={['#9333ea', '#7c3aed']}
                 style={styles.playGradient}
               >
-                <Ionicons
-                  name={isPlaying ? 'pause' : 'play'}
-                  size={30}
-                  color="#fff"
-                  style={isPlaying ? {} : { marginLeft: 3 }}
-                />
+                {playbackState.isLoading && playbackState.currentTrackId === track.id ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons
+                    name={isCurrentTrackPlaying ? 'pause' : 'play'}
+                    size={30}
+                    color="#fff"
+                    style={isCurrentTrackPlaying ? {} : { marginLeft: 3 }}
+                  />
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sideControl}>
+            <TouchableOpacity
+              style={styles.sideControl}
+              onPress={() => handleSeek(1)}
+            >
               <Ionicons name="play-skip-forward" size={24} color="#fff" />
             </TouchableOpacity>
 
@@ -259,22 +290,21 @@ export default function TrackDetailScreen() {
         {/* Action Row */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.actionBtn, track.liked && styles.activeActionBtn]}
+            style={[styles.actionBtn, liked && styles.activeActionBtn]}
             onPress={handleLikeToggle}
-            disabled={actionLoading}
           >
             <Ionicons
-              name={track.liked ? 'heart' : 'heart-outline'}
+              name={liked ? 'heart' : 'heart-outline'}
               size={20}
-              color={track.liked ? '#a855f7' : '#94a3b8'}
+              color={liked ? '#a855f7' : '#94a3b8'}
             />
             <Text
               style={[
                 styles.actionBtnText,
-                track.liked && styles.activeActionBtnText,
+                liked && styles.activeActionBtnText,
               ]}
             >
-              {track.likes_count || 0} Likes
+              {likesCount} Likes
             </Text>
           </TouchableOpacity>
 
@@ -287,7 +317,7 @@ export default function TrackDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Comments Section */}
+        {/* Comments / Discussion Section */}
         <View style={styles.commentsSection}>
           <Text style={styles.commentsTitle}>Comments ({comments.length})</Text>
 
@@ -298,12 +328,11 @@ export default function TrackDetailScreen() {
               placeholderTextColor="#64748b"
               value={newComment}
               onChangeText={setNewComment}
-              editable={!actionLoading}
             />
             <TouchableOpacity
               style={styles.commentSendBtn}
               onPress={handlePostComment}
-              disabled={actionLoading || !newComment.trim()}
+              disabled={!newComment.trim()}
             >
               <Ionicons name="send" size={18} color="#c084fc" />
             </TouchableOpacity>
@@ -313,9 +342,6 @@ export default function TrackDetailScreen() {
             <View key={c.id} style={styles.commentCard}>
               <View style={styles.commentHeader}>
                 <Text style={styles.commentAuthor}>{c.user?.name || 'Listener'}</Text>
-                <TouchableOpacity onPress={() => handleDeleteComment(c.id)}>
-                  <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                </TouchableOpacity>
               </View>
               <Text style={styles.commentBody}>{c.body}</Text>
             </View>
@@ -370,10 +396,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitleBlock: {
+    alignItems: 'center',
+  },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
+  },
+  streamBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  streamDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#22c55e',
+    marginRight: 4,
+  },
+  streamBadgeText: {
+    color: '#22c55e',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -384,13 +431,13 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   coverArt: {
-    width: 240,
-    height: 240,
+    width: 250,
+    height: 250,
     borderRadius: 24,
     marginBottom: 24,
     shadowColor: '#a855f7',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.45,
     shadowRadius: 20,
   },
   trackTitle: {
@@ -416,25 +463,24 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   progressBar: {
-    height: 4,
+    height: 6,
     backgroundColor: '#242436',
-    borderRadius: 2,
+    borderRadius: 3,
     position: 'relative',
     justifyContent: 'center',
   },
   progressCurrent: {
     height: '100%',
     backgroundColor: '#a855f7',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   progressKnob: {
     position: 'absolute',
-    left: '40%',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#ffffff',
-    marginLeft: -6,
+    marginLeft: -7,
   },
   timeRow: {
     flexDirection: 'row',

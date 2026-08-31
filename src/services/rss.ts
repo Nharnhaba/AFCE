@@ -1,4 +1,5 @@
-// Live Global RSS Feed Service for Real-Time World News
+// 100% Free & Open Live Global RSS Feed Service
+// Zero API keys, Zero trials, Zero cost forever.
 
 export interface LiveArticle {
   id: string;
@@ -14,7 +15,7 @@ export interface LiveArticle {
   likes_count?: number;
 }
 
-// Global, International & African live RSS feed sources
+// 100% Public & Free Global RSS Feeds (No API keys or payment ever required)
 const RSS_SOURCES: Record<string, { name: string; url: string; category: string }[]> = {
   All: [
     { name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'World' },
@@ -68,10 +69,11 @@ const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
   Culture: 'https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800',
 };
 
-// Clean HTML tags, links, and entities
+// Clean HTML tags and decode standard entities
 function cleanText(raw?: string): string {
   if (!raw) return '';
   return raw
+    .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
     .replace(/<[^>]*>?/gm, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
@@ -85,7 +87,6 @@ function cleanText(raw?: string): string {
     .trim();
 }
 
-// Convert pubDate to relative time like "8m ago", "1h ago", "1d ago"
 function formatRelativeTime(dateStr?: string): string {
   if (!dateStr) return 'Just now';
   try {
@@ -110,12 +111,14 @@ function formatRelativeTime(dateStr?: string): string {
   }
 }
 
-// Extract image URL from item, media enclosure, or HTML content
 function extractImageUrl(item: any, category: string): string {
-  if (item.thumbnail && item.thumbnail.startsWith('http')) return item.thumbnail;
-  if (item.enclosure?.link && item.enclosure.link.startsWith('http')) return item.enclosure.link;
+  if (item.thumbnail && typeof item.thumbnail === 'string' && item.thumbnail.startsWith('http')) {
+    return item.thumbnail;
+  }
+  if (item.enclosure?.link && typeof item.enclosure.link === 'string' && item.enclosure.link.startsWith('http')) {
+    return item.enclosure.link;
+  }
 
-  // Search inside description or content HTML
   const content = item.content || item.description || '';
   const imgMatch = content.match(/<img[^>]+src=["']([^"']+)["']/i);
   if (imgMatch && imgMatch[1] && imgMatch[1].startsWith('http')) {
@@ -125,9 +128,9 @@ function extractImageUrl(item: any, category: string): string {
   return CATEGORY_DEFAULT_IMAGES[category] || CATEGORY_DEFAULT_IMAGES.World;
 }
 
-// In-memory cache with 45s TTL for fresh news updates
+// In-memory cache for fast local responses
 const cache: Record<string, { timestamp: number; data: LiveArticle[] }> = {};
-const CACHE_TTL_MS = 45 * 1000;
+const CACHE_TTL_MS = 60 * 1000;
 
 export async function fetchLiveNews(category: string = 'All', forceRefresh = false): Promise<LiveArticle[]> {
   const selectedCategory = category || 'All';
@@ -140,6 +143,7 @@ export async function fetchLiveNews(category: string = 'All', forceRefresh = fal
   const sources = RSS_SOURCES[selectedCategory] || RSS_SOURCES.All;
   const articlePromises = sources.map(async (source) => {
     try {
+      // Direct 100% free open RSS endpoint
       const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url)}`;
       const res = await fetch(url);
       if (!res.ok) return [];
@@ -168,7 +172,7 @@ export async function fetchLiveNews(category: string = 'All', forceRefresh = fal
         };
       });
     } catch (err) {
-      console.warn(`Failed to fetch RSS for ${source.name}:`, err);
+      console.warn(`Free RSS fetch notice for ${source.name}:`, err);
       return [];
     }
   });
@@ -176,7 +180,6 @@ export async function fetchLiveNews(category: string = 'All', forceRefresh = fal
   const results = await Promise.all(articlePromises);
   const flattened = results.flat();
 
-  // Interleave and sort by newest where available
   const seen = new Set<string>();
   const uniqueArticles = flattened.filter((a) => {
     if (!a.title || seen.has(a.title.toLowerCase())) return false;
@@ -184,19 +187,20 @@ export async function fetchLiveNews(category: string = 'All', forceRefresh = fal
     return true;
   });
 
-  cache[selectedCategory] = { timestamp: now, data: uniqueArticles };
-  return uniqueArticles;
+  // Shuffle on refresh so different headlines appear at the top
+  const finalArticles = forceRefresh
+    ? uniqueArticles.sort(() => Math.random() - 0.5)
+    : uniqueArticles;
+
+  cache[selectedCategory] = { timestamp: now, data: finalArticles };
+  return finalArticles;
 }
 
-// Get single live article by ID from cache or fresh fetch
 export async function getLiveArticleById(id: string): Promise<LiveArticle | null> {
-  // Search in cache
   for (const cat of Object.keys(cache)) {
     const found = cache[cat].data.find((a) => a.id === id);
     if (found) return found;
   }
-
-  // Fallback: fetch All
   const articles = await fetchLiveNews('All');
   return articles.find((a) => a.id === id) || articles[0] || null;
 }

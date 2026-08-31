@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,75 +8,116 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  RefreshControl,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { getTrendingTracks, getPlaylists } from '../../src/services/api';
+import {
+  fetchLiveTrendingMusic,
+  LIVE_PLAYLISTS,
+  StreamingTrack,
+  StreamingPlaylist,
+} from '../../src/services/musicStreaming';
+import {
+  playTrack,
+  subscribePlaybackState,
+  PlaybackState,
+} from '../../src/services/audioPlayer';
 import MovingBackground from '../../src/components/MovingBackground';
-
-interface TrackItem {
-  id: string | number;
-  title: string;
-  artist?: string;
-  duration?: string | number;
-  cover_art_url?: string;
-  genre?: string;
-}
-
-const FEATURED_PLAYLISTS = [
-  {
-    id: 'p1',
-    title: "Today's Hits",
-    songsCount: '50 Songs',
-    colors: ['#6366f1', '#a855f7'],
-    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300',
-  },
-  {
-    id: 'p2',
-    title: 'Afrobeats Vibes',
-    songsCount: '80 Songs',
-    colors: ['#f97316', '#ea580c'],
-    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300',
-  },
-  {
-    id: 'p3',
-    title: 'Chill & Relax',
-    songsCount: '60 Songs',
-    colors: ['#06b6d4', '#0d9488'],
-    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300',
-  },
-];
 
 export default function MusicTab() {
   const router = useRouter();
-  const [tracks, setTracks] = useState<TrackItem[]>([]);
+  const [tracks, setTracks] = useState<StreamingTrack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  const [playbackState, setPlaybackState] = useState<PlaybackState>({
+    isPlaying: false,
+    positionMillis: 0,
+    durationMillis: 0,
+    isLoading: false,
+    currentTrackId: null,
+  });
 
   useEffect(() => {
-    getTrendingTracks()
-      .then((data) => setTracks(data || []))
-      .catch((err: any) => console.error('Failed to load tracks:', err))
-      .finally(() => setLoading(false));
+    const unsubscribe = subscribePlaybackState(setPlaybackState);
+    return unsubscribe;
   }, []);
+
+  const triggerSpin = () => {
+    spinAnim.setValue(0);
+    Animated.timing(spinAnim, {
+      toValue: 1,
+      duration: 700,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const loadMusic = useCallback(async (query?: string, isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+      triggerSpin();
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const data = await fetchLiveTrendingMusic(query, isRefresh);
+      setTracks(data || []);
+    } catch (err) {
+      console.error('Failed to load music streams:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMusic();
+  }, [loadMusic]);
+
+  const handleRefreshClick = () => {
+    const query = selectedPlaylist
+      ? LIVE_PLAYLISTS.find((p) => p.id === selectedPlaylist)?.query
+      : undefined;
+    loadMusic(query, true);
+  };
+
+  const handlePlaylistSelect = (playlist: StreamingPlaylist) => {
+    if (selectedPlaylist === playlist.id) {
+      setSelectedPlaylist(null);
+      loadMusic(undefined, true);
+    } else {
+      setSelectedPlaylist(playlist.id);
+      loadMusic(playlist.query, true);
+    }
+  };
+
+  const handleInlinePlay = async (track: StreamingTrack) => {
+    if (track.audio_url) {
+      await playTrack(track.id, track.audio_url);
+    } else {
+      router.push({ pathname: '/music/[id]', params: { id: track.id } } as any);
+    }
+  };
 
   const formatDuration = (sec?: number | string) => {
     if (!sec) return '3:41';
-    if (typeof sec === 'string' && sec.includes(':')) return sec;
     const s = Number(sec);
     if (isNaN(s)) return '3:41';
     const m = Math.floor(s / 60);
     const rem = s % 60;
     return `${m}:${rem < 10 ? '0' : ''}${rem}`;
   };
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#a855f7" />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -90,106 +131,206 @@ export default function MusicTab() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefreshClick}
+            tintColor="#a855f7"
+            colors={['#a855f7']}
+          />
+        }
       >
         {/* Top Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Music</Text>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => router.push('/search')}
-          >
-            <Feather name="search" size={20} color="#fff" />
-          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Live Music Stream</Text>
+            <View style={styles.liveIndicatorRow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveIndicatorText}>STREAMING FROM CLOUD</Text>
+            </View>
+          </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleRefreshClick}
+              disabled={refreshing}
+            >
+              <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                <Ionicons name="refresh" size={20} color="#c084fc" />
+              </Animated.View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => router.push('/search')}
+            >
+              <Feather name="search" size={19} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Featured Playlists Section */}
         <Text style={styles.sectionTitle}>Featured Playlists</Text>
 
         <View style={styles.featuredPlaylistsContainer}>
-          {FEATURED_PLAYLISTS.map((playlist, idx) => (
-            <TouchableOpacity
-              key={playlist.id}
-              style={styles.playlistCard}
-              onPress={() => {
-                if (tracks.length > 0) {
-                  const pickIdx = idx % tracks.length;
-                  router.push(`/music/${tracks[pickIdx].id}` as any);
-                }
-              }}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={playlist.colors as any}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.playlistGradient}
+          {LIVE_PLAYLISTS.map((playlist) => {
+            const isSelected = selectedPlaylist === playlist.id;
+            return (
+              <TouchableOpacity
+                key={playlist.id}
+                style={[
+                  styles.playlistCard,
+                  isSelected && styles.selectedPlaylistCard,
+                ]}
+                onPress={() => handlePlaylistSelect(playlist)}
+                activeOpacity={0.9}
               >
-                <View style={styles.playlistLeft}>
-                  <Image
-                    source={{ uri: playlist.image }}
-                    style={styles.playlistThumb}
-                  />
-                  <View style={styles.playlistMeta}>
-                    <Text style={styles.playlistTitle}>{playlist.title}</Text>
-                    <Text style={styles.playlistSongs}>{playlist.songsCount}</Text>
+                <LinearGradient
+                  colors={playlist.colors as any}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.playlistGradient}
+                >
+                  <View style={styles.playlistLeft}>
+                    <Image
+                      source={{ uri: playlist.image }}
+                      style={styles.playlistThumb}
+                    />
+                    <View style={styles.playlistMeta}>
+                      <Text style={styles.playlistTitle}>{playlist.title}</Text>
+                      <Text style={styles.playlistSongs}>
+                        {isSelected ? 'Active Filter • Tap to Reset' : playlist.songsCount}
+                      </Text>
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.playlistPlayBtn}>
-                  <Ionicons name="play" size={20} color="#6d28d9" style={{ marginLeft: 3 }} />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
+                  <View style={styles.playlistPlayBtn}>
+                    <Ionicons
+                      name={isSelected ? 'checkmark' : 'play'}
+                      size={20}
+                      color="#6d28d9"
+                      style={isSelected ? {} : { marginLeft: 3 }}
+                    />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Recently Played Section */}
+        {/* Streaming Tracks List Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recently Played</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAllText}>See all</Text>
+          <Text style={styles.sectionTitle}>
+            {selectedPlaylist
+              ? `${LIVE_PLAYLISTS.find((p) => p.id === selectedPlaylist)?.title || 'Playlist'} Tracks`
+              : 'Trending Now'}
+          </Text>
+          <TouchableOpacity
+            style={styles.refreshBadge}
+            onPress={handleRefreshClick}
+            disabled={refreshing}
+          >
+            <Animated.View style={{ transform: [{ rotate: spin }] }}>
+              <Ionicons name="sync-outline" size={14} color="#c084fc" />
+            </Animated.View>
+            <Text style={styles.refreshBadgeText}>
+              {refreshing ? 'Refreshing...' : 'Refresh Tracks'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.tracksList}>
-          {tracks.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.trackItem}
-              onPress={() => router.push(`/music/${item.id}` as any)}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={{
-                  uri:
-                    item.cover_art_url ||
-                    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300',
-                }}
-                style={styles.trackCover}
-              />
-              <View style={styles.trackInfo}>
-                <Text style={styles.trackTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>
-                  {item.artist || 'Unknown Artist'}
-                </Text>
+        {loading && !refreshing ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#a855f7" />
+            <Text style={styles.loadingText}>Connecting to live music streams...</Text>
+          </View>
+        ) : (
+          <View style={styles.tracksList}>
+            {tracks.map((item) => {
+              const isCurrentlyPlaying =
+                playbackState.currentTrackId === item.id && playbackState.isPlaying;
+              const isCurrentTrack = playbackState.currentTrackId === item.id;
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.trackItem,
+                    isCurrentTrack && styles.activeTrackItem,
+                  ]}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/music/[id]',
+                      params: { id: item.id },
+                    } as any)
+                  }
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.coverWrapper}>
+                    <Image
+                      source={{ uri: item.cover_art_url }}
+                      style={styles.trackCover}
+                    />
+                    {isCurrentlyPlaying && (
+                      <View style={styles.playingOverlay}>
+                        <Ionicons name="volume-high" size={16} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.trackInfo}>
+                    <Text
+                      style={[
+                        styles.trackTitle,
+                        isCurrentTrack && styles.activeTrackTitle,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text style={styles.trackArtist} numberOfLines={1}>
+                      {item.artist} • {item.album}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.trackDuration}>
+                    {formatDuration(item.duration)}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.trackPlayButton,
+                      isCurrentlyPlaying && styles.activePlayButton,
+                    ]}
+                    onPress={() => handleInlinePlay(item)}
+                  >
+                    {playbackState.isLoading && isCurrentTrack ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons
+                        name={isCurrentlyPlaying ? 'pause' : 'play'}
+                        size={16}
+                        color={isCurrentlyPlaying ? '#ffffff' : '#c084fc'}
+                        style={isCurrentlyPlaying ? {} : { marginLeft: 2 }}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+
+            {tracks.length === 0 && !loading && (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="musical-notes-outline" size={48} color="#475569" />
+                <Text style={styles.emptyText}>No live streaming tracks available</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={handleRefreshClick}>
+                  <Text style={styles.retryBtnText}>Tap to Refresh</Text>
+                </TouchableOpacity>
               </View>
-
-              <Text style={styles.trackDuration}>{formatDuration(item.duration)}</Text>
-
-              <TouchableOpacity
-                style={styles.trackPlayButton}
-                onPress={() => router.push(`/music/${item.id}` as any)}
-              >
-                <Ionicons name="play" size={16} color="#c084fc" style={{ marginLeft: 2 }} />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-          {tracks.length === 0 && (
-            <Text style={styles.emptyText}>No music tracks found</Text>
-          )}
-        </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -201,10 +342,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a0f',
   },
   centered: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
+    paddingVertical: 50,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    marginTop: 10,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -223,7 +368,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  searchButton: {
+  liveIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#a855f7',
+    marginRight: 6,
+  },
+  liveIndicatorText: {
+    color: '#c084fc',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -247,10 +415,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     marginBottom: 14,
   },
-  seeAllText: {
-    color: '#a855f7',
-    fontSize: 13,
-    fontWeight: '600',
+  refreshBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a1b3d',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.4)',
+  },
+  refreshBadgeText: {
+    color: '#c084fc',
+    fontSize: 12,
+    fontWeight: '700',
   },
   featuredPlaylistsContainer: {
     gap: 12,
@@ -264,6 +443,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  selectedPlaylistCard: {
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
   playlistGradient: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -273,6 +456,7 @@ const styles = StyleSheet.create({
   playlistLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   playlistThumb: {
     width: 52,
@@ -281,7 +465,9 @@ const styles = StyleSheet.create({
     marginRight: 14,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  playlistMeta: {},
+  playlistMeta: {
+    flex: 1,
+  },
   playlistTitle: {
     color: '#ffffff',
     fontSize: 16,
@@ -301,8 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOpacity: 2,
   },
   tracksList: {
     gap: 10,
@@ -316,12 +501,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#242436',
   },
+  activeTrackItem: {
+    borderColor: '#a855f7',
+    backgroundColor: '#1a1528',
+  },
+  coverWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
   trackCover: {
     width: 48,
     height: 48,
     borderRadius: 10,
-    marginRight: 12,
     backgroundColor: '#2a1b3d',
+  },
+  playingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(147, 51, 234, 0.7)',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   trackInfo: {
     flex: 1,
@@ -330,6 +529,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  activeTrackTitle: {
+    color: '#c084fc',
+    fontWeight: '700',
   },
   trackArtist: {
     color: '#94a3b8',
@@ -342,18 +545,35 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   trackPlayButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#2a1b3d',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  activePlayButton: {
+    backgroundColor: '#9333ea',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
   emptyText: {
     color: '#64748b',
-    textAlign: 'center',
-    marginTop: 30,
+    marginTop: 8,
     fontSize: 14,
     fontStyle: 'italic',
+  },
+  retryBtn: {
+    marginTop: 12,
+    backgroundColor: '#2a1b3d',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  retryBtnText: {
+    color: '#c084fc',
+    fontWeight: '600',
   },
 });

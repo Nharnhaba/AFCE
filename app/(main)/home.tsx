@@ -15,6 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { getGlobalTrending, getCurrentUser, loadStoredName } from '../../src/services/api';
 import { fetchLiveNews } from '../../src/services/rss';
+import { fetchLiveTrendingMusic } from '../../src/services/musicStreaming';
+import { fetchLiveStreamingVideos } from '../../src/services/videoStreaming';
 import MovingBackground from '../../src/components/MovingBackground';
 
 export default function HomeScreen() {
@@ -34,15 +36,21 @@ export default function HomeScreen() {
       getGlobalTrending(undefined, 6).catch(() => null),
       getCurrentUser().catch(() => null),
       fetchLiveNews('All').catch(() => []),
+      fetchLiveTrendingMusic().catch(() => []),
+      fetchLiveStreamingVideos('Trending').catch(() => []),
     ])
-      .then(([trendRes, userRes, liveNews]) => {
+      .then(([trendRes, userRes, liveNews, liveMusic, liveVideos]) => {
         if (trendRes && trendRes.trending) {
-          setTrendingVideos(trendRes.trending.videos || []);
-          setTopMusic(trendRes.trending.tracks || []);
+          const beVideos = trendRes.trending.videos || [];
+          setTrendingVideos(beVideos.length > 0 ? beVideos : liveVideos.slice(0, 5));
+          const beTracks = trendRes.trending.tracks || [];
+          setTopMusic(beTracks.length > 0 ? beTracks : liveMusic.slice(0, 4));
           const beArticles = trendRes.trending.articles || [];
           setTopNews(beArticles.length > 0 ? beArticles : liveNews.slice(0, 4));
-        } else if (liveNews && liveNews.length > 0) {
-          setTopNews(liveNews.slice(0, 4));
+        } else {
+          if (liveVideos && liveVideos.length > 0) setTrendingVideos(liveVideos.slice(0, 5));
+          if (liveMusic && liveMusic.length > 0) setTopMusic(liveMusic.slice(0, 4));
+          if (liveNews && liveNews.length > 0) setTopNews(liveNews.slice(0, 4));
         }
         if (userRes && userRes.name) {
           setUserName(userRes.name);

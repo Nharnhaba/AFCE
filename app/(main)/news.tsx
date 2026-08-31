@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,46 +26,69 @@ export default function NewsTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
+  const spinAnim = useRef(new Animated.Value(0)).current;
 
-  const loadNews = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const triggerSpin = () => {
+    spinAnim.setValue(0);
+    Animated.timing(spinAnim, {
+      toValue: 1,
+      duration: 700,
+      useNativeDriver: true,
+    }).start();
+  };
 
-    try {
-      // 1. Fetch live internet RSS feeds
-      const rssData = await fetchLiveNews(activeCategory, isRefresh);
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
-      // 2. Also fetch any user-published articles from backend
-      let backendArticles: LiveArticle[] = [];
+  const loadNews = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+        triggerSpin();
+      } else {
+        setLoading(true);
+      }
+
       try {
-        const catParam = activeCategory === 'All' ? undefined : activeCategory.toLowerCase();
-        const beData = await getTrendingArticles(undefined, catParam);
-        if (Array.isArray(beData)) {
-          backendArticles = beData.map((a: any) => ({
-            id: `be-${a.id}`,
-            title: a.title,
-            excerpt: a.excerpt || a.body?.slice(0, 140) || '',
-            body: a.body || '',
-            category: a.category || 'World',
-            cover_image_url: a.cover_image_url || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800',
-            source: a.author_name || 'AFCE Community',
-            published_at: 'Community Post',
-            link: '',
-            views: a.views || 120,
-            likes_count: a.likes_count || 0,
-          }));
-        }
-      } catch {}
+        // 1. Fetch live global RSS feeds
+        const rssData = await fetchLiveNews(activeCategory, isRefresh);
 
-      // Merge backend community articles on top of live RSS internet feeds
-      setArticles([...backendArticles, ...rssData]);
-    } catch (err) {
-      console.error('Failed to load news:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [activeCategory]);
+        // 2. Also fetch any user-published articles from backend
+        let backendArticles: LiveArticle[] = [];
+        try {
+          const catParam = activeCategory === 'All' ? undefined : activeCategory.toLowerCase();
+          const beData = await getTrendingArticles(undefined, catParam);
+          if (Array.isArray(beData)) {
+            backendArticles = beData.map((a: any) => ({
+              id: `be-${a.id}`,
+              title: a.title,
+              excerpt: a.excerpt || a.body?.slice(0, 140) || '',
+              body: a.body || '',
+              category: a.category || 'World',
+              cover_image_url:
+                a.cover_image_url ||
+                'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800',
+              source: a.author_name || 'AFCE Community',
+              published_at: 'Community Post',
+              link: '',
+              views: a.views || 120,
+              likes_count: a.likes_count || 0,
+            }));
+          }
+        } catch {}
+
+        setArticles([...backendArticles, ...rssData]);
+      } catch (err) {
+        console.error('Failed to load news:', err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [activeCategory]
+  );
 
   useEffect(() => {
     loadNews();
@@ -108,12 +132,24 @@ export default function NewsTab() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => router.push('/search')}
-          >
-            <Feather name="search" size={20} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={onRefresh}
+              disabled={refreshing}
+            >
+              <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                <Ionicons name="refresh" size={20} color="#c084fc" />
+              </Animated.View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => router.push('/search')}
+            >
+              <Feather name="search" size={19} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Categories Chips */}
@@ -149,7 +185,9 @@ export default function NewsTab() {
         {loading && !refreshing ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#a855f7" />
-            <Text style={styles.loadingFeedText}>Fetching live RSS internet updates...</Text>
+            <Text style={styles.loadingFeedText}>
+              Fetching live RSS internet updates...
+            </Text>
           </View>
         ) : (
           <>
@@ -157,7 +195,12 @@ export default function NewsTab() {
             {featuredArticle && (
               <TouchableOpacity
                 style={styles.featuredCard}
-                onPress={() => router.push({ pathname: '/news/[id]', params: { id: featuredArticle.id } } as any)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/news/[id]',
+                    params: { id: featuredArticle.id },
+                  } as any)
+                }
                 activeOpacity={0.9}
               >
                 <Image
@@ -198,18 +241,19 @@ export default function NewsTab() {
                 <TouchableOpacity
                   key={item.id}
                   style={styles.articleRow}
-                  onPress={() => router.push({ pathname: '/news/[id]', params: { id: item.id } } as any)}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/news/[id]',
+                      params: { id: item.id },
+                    } as any)
+                  }
                   activeOpacity={0.85}
                 >
                   <View style={styles.articleTextSide}>
                     <View style={styles.rowSourceRow}>
-                      <Text style={styles.rowCategory}>
-                        {item.category}
-                      </Text>
+                      <Text style={styles.rowCategory}>{item.category}</Text>
                       <Text style={styles.rowDot}>•</Text>
-                      <Text style={styles.rowSource}>
-                        {item.source}
-                      </Text>
+                      <Text style={styles.rowSource}>{item.source}</Text>
                     </View>
 
                     <Text style={styles.rowTitle} numberOfLines={2}>
@@ -230,7 +274,7 @@ export default function NewsTab() {
                 <View style={styles.emptyContainer}>
                   <Ionicons name="newspaper-outline" size={48} color="#475569" />
                   <Text style={styles.emptyText}>No live news articles found</Text>
-                  <TouchableOpacity style={styles.retryBtn} onPress={() => loadNews(true)}>
+                  <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
                     <Text style={styles.retryBtnText}>Tap to Refresh</Text>
                   </TouchableOpacity>
                 </View>
@@ -293,7 +337,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  searchButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,

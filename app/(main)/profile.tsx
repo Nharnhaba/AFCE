@@ -1,10 +1,12 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { clearAuthToken } from '../../src/services/api';
 
 export default function ProfileTab() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await clearAuthToken();
     router.replace('/login');
   };
 

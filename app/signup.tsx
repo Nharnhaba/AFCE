@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { registerUser, saveAuthToken } from '../src/services/api';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -8,16 +9,26 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!name || !email || !password) {
       Alert.alert('Missing info', 'Please fill in all fields');
       return;
     }
 
-    // TODO: replace this with your real API call to the backend later
-    Alert.alert('Account created');
-    router.replace('/home');
+    setLoading(true);
+    try {
+      // Pass password twice to satisfy backend password_confirmation check
+      const response = await registerUser(name, email, password, password);
+      await saveAuthToken(response.token);
+      Alert.alert('Success', 'Account created successfully');
+      router.replace('/home');
+    } catch (err: any) {
+      Alert.alert('Signup failed', err.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,6 +42,7 @@ export default function SignupScreen() {
         placeholderTextColor="#666"
         value={name}
         onChangeText={setName}
+        editable={!loading}
       />
 
       <TextInput
@@ -40,6 +52,7 @@ export default function SignupScreen() {
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        editable={!loading}
       />
 
       <View style={styles.passwordWrapper}>
@@ -50,17 +63,22 @@ export default function SignupScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
+          editable={!loading}
         />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading}>
           <Text style={styles.toggleText}>{showPassword ? 'Hide' : 'Show'}</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleSignup}>
-        <Text style={styles.buttonText}>Sign Up</Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Sign Up</Text>
+        )}
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.link} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.link} onPress={() => router.back()} disabled={loading}>
         <Text style={styles.linkText}>Already have an account? <Text style={styles.linkAccent}>Log In</Text></Text>
       </TouchableOpacity>
     </View>
@@ -80,7 +98,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: { flex: 1, color: '#fff', padding: 14 },
   toggleText: { color: '#c084fc', fontWeight: '600' },
-  button: { backgroundColor: '#a855f7', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  button: { backgroundColor: '#a855f7', paddingVertical: 14, borderRadius: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   link: { marginTop: 24, alignItems: 'center' },
   linkText: { color: '#888' },

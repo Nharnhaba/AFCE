@@ -1,6 +1,37 @@
+import * as SecureStore from 'expo-secure-store';
+
 const BASE_URL = 'http://afce-media-api.test'; // swap for live URL once hosted
+const TOKEN_KEY = 'auth_token';
 
 let authToken: string | null = null;
+
+export async function loadStoredToken() {
+  try {
+    authToken = await SecureStore.getItemAsync(TOKEN_KEY);
+    return authToken;
+  } catch (err) {
+    console.error('Failed to load stored token', err);
+    return null;
+  }
+}
+
+export async function saveAuthToken(token: string) {
+  try {
+    authToken = token;
+    await SecureStore.setItemAsync(TOKEN_KEY, token);
+  } catch (err) {
+    console.error('Failed to save token securely', err);
+  }
+}
+
+export async function clearAuthToken() {
+  try {
+    authToken = null;
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+  } catch (err) {
+    console.error('Failed to clear stored token', err);
+  }
+}
 
 export function setAuthToken(token: string | null) {
   authToken = token;

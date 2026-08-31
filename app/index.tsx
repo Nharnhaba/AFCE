@@ -2,12 +2,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { loadStoredToken } from '../src/services/api';
 
 export default function SplashScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = setTimeout(() => router.replace('/onboarding'), 2000);
+    const checkAuthAndNavigate = async () => {
+      const token = await loadStoredToken();
+      if (token) {
+        router.replace('/home');
+      } else {
+        router.replace('/onboarding');
+      }
+    };
+
+    const timer = setTimeout(checkAuthAndNavigate, 2000);
     return () => clearTimeout(timer);
   }, []);
 

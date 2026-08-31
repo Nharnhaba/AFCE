@@ -1,22 +1,42 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { clearAuthToken } from '../../src/services/api';
+import { clearAuthToken, getCurrentUser } from '../../src/services/api';
 
 export default function ProfileTab() {
   const router = useRouter();
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then(setUser)
+      .catch((err) => console.error('Failed to load user info:', err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleLogout = async () => {
     await clearAuthToken();
     router.replace('/login');
   };
 
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#a855f7" />
+      </View>
+    );
+  }
+
+  const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
+
   return (
     <View style={styles.container}>
       <View style={styles.avatarCircle}>
-        <Text style={styles.avatarText}>T</Text>
+        <Text style={styles.avatarText}>{initial}</Text>
       </View>
-      <Text style={styles.name}>Tino</Text>
-      <Text style={styles.email}>tino@example.com</Text>
+      <Text style={styles.name}>{user?.name || 'User'}</Text>
+      <Text style={styles.email}>{user?.email || 'No email'}</Text>
 
       <TouchableOpacity 
         style={styles.uploadsButton} 
@@ -34,6 +54,7 @@ export default function ProfileTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0f', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  centered: { flex: 1, backgroundColor: '#0a0a0f', justifyContent: 'center', alignItems: 'center' },
   avatarCircle: {
     width: 90,
     height: 90,

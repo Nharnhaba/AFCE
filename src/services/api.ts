@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL = 'http://afce-media-api.test'; // swap for live URL once hosted
+const BASE_URL = 'https://afci.onrender.com';
 const TOKEN_KEY = 'auth_token';
 
 let authToken: string | null = null;
@@ -63,6 +63,14 @@ export async function loginUser(email: string, password: string) {
   });
   if (!res.ok) throw new Error((await res.json()).message || 'Login failed');
   return res.json(); // { user, token }
+}
+
+export async function getCurrentUser() {
+  const res = await fetch(`${BASE_URL}/api/user`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch user');
+  return res.json();
 }
 
 export async function forgotPassword(email: string) {

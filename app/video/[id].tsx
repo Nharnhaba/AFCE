@@ -11,8 +11,9 @@ import {
   Alert,
   Image,
   Switch,
+  Platform,
 } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -28,33 +29,28 @@ import {
 } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
 
-const SAMPLE_FALLBACK_STREAMS = [
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+const VERIFIED_FAST_STREAMS = [
+  'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
+  'https://www.w3schools.com/html/mov_bbb.mp4',
+  'https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4',
 ];
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const videoRef = useRef<Video>(null);
 
   const [video, setVideo] = useState<StreamingVideo | any>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [upNextVideos, setUpNextVideos] = useState<StreamingVideo[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isBuffering, setIsBuffering] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [subscribed, setSubscribed] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [currentVideoUri, setCurrentVideoUri] = useState<string>('');
+  const [videoUri, setVideoUri] = useState<string>(VERIFIED_FAST_STREAMS[0]);
 
   useEffect(() => {
     if (!id) return;
@@ -69,19 +65,17 @@ export default function VideoDetailScreen() {
           setVideo(beData);
           setLikesCount(beData.likes_count || 0);
           setLiked(!!beData.liked);
-          setCurrentVideoUri(beData.video_url || SAMPLE_FALLBACK_STREAMS[0]);
+          setVideoUri(beData.video_url || VERIFIED_FAST_STREAMS[0]);
         } else {
           // Live cloud streaming video
           const liveData = await getLiveVideoDetail(videoId);
           if (liveData) {
             setVideo(liveData);
             setLikesCount(liveData.likes_count || 45000);
-            const fallbackUri =
-              SAMPLE_FALLBACK_STREAMS[
-                Math.abs(videoId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) %
-                  SAMPLE_FALLBACK_STREAMS.length
-              ];
-            setCurrentVideoUri(liveData.video_url || fallbackUri);
+            const idx =
+              Math.abs(videoId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) %
+              VERIFIED_FAST_STREAMS.length;
+            setVideoUri(VERIFIED_FAST_STREAMS[idx]);
           }
         }
 
@@ -97,28 +91,19 @@ export default function VideoDetailScreen() {
     fetchDetails();
   }, [id]);
 
-  const handlePlayToggle = async () => {
-    if (!videoRef.current) return;
-    try {
-      if (isPlaying) {
-        await videoRef.current.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await videoRef.current.playAsync();
-        setIsPlaying(true);
-      }
-    } catch (err) {
-      console.warn('Video toggle error:', err);
-    }
-  };
+  // Modern Expo SDK 54 Video Player Hook
+  const player = useVideoPlayer(videoUri, (p) => {
+    p.loop = true;
+    p.play();
+  });
 
   const handleOpenExternal = async () => {
     if (video?.youtube_id) {
       await WebBrowser.openBrowserAsync(`https://www.youtube.com/watch?v=${video.youtube_id}`);
     } else if (video?.dailymotion_id) {
       await WebBrowser.openBrowserAsync(`https://www.dailymotion.com/video/${video.dailymotion_id}`);
-    } else if (currentVideoUri) {
-      await WebBrowser.openBrowserAsync(currentVideoUri);
+    } else if (videoUri) {
+      await WebBrowser.openBrowserAsync(videoUri);
     }
   };
 
@@ -141,18 +126,6 @@ export default function VideoDetailScreen() {
     };
     setComments([newEntry, ...comments]);
     setNewComment('');
-  };
-
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      if (status.error) {
-        console.warn('Playback error, switching stream:', status.error);
-        setCurrentVideoUri(SAMPLE_FALLBACK_STREAMS[0]);
-      }
-      return;
-    }
-    setIsPlaying(status.isPlaying);
-    setIsBuffering(status.isBuffering);
   };
 
   const formatViews = (views?: number) => {
@@ -229,40 +202,15 @@ export default function VideoDetailScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Native Live Video Player */}
+        {/* Modern Expo SDK 54 Native Video View */}
         <View style={styles.playerContainer}>
-          <Video
-            ref={videoRef}
-            source={{ uri: currentVideoUri || SAMPLE_FALLBACK_STREAMS[0] }}
-            rate={1.0}
-            volume={1.0}
-            isMuted={false}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={false}
-            useNativeControls
+          <VideoView
+            player={player}
             style={styles.videoPlayer}
-            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+            allowsFullscreen
+            allowsPictureInPicture
+            startsPictureInPictureAutomatically
           />
-
-          {/* Central Play Overlay if paused */}
-          {!isPlaying && (
-            <TouchableOpacity
-              style={styles.centralPlayBtn}
-              onPress={handlePlayToggle}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#9333ea', '#7c3aed']}
-                style={styles.playGradient}
-              >
-                {isBuffering ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="play" size={32} color="#ffffff" style={{ marginLeft: 4 }} />
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Video Info Section */}
@@ -550,23 +498,6 @@ const styles = StyleSheet.create({
   videoPlayer: {
     width: '100%',
     height: '100%',
-  },
-  centralPlayBtn: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    overflow: 'hidden',
-    shadowColor: '#a855f7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  playGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   infoSection: {
     paddingHorizontal: 20,

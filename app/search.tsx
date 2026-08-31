@@ -63,9 +63,9 @@ export default function SearchScreen() {
     try {
       const res = await searchContent(text);
       setResults({
-        videos: res.videos || res.data?.videos || [],
-        tracks: res.tracks || res.data?.tracks || [],
-        articles: res.articles || res.data?.articles || [],
+        videos: res.results?.videos || [],
+        tracks: res.results?.tracks || [],
+        articles: res.results?.articles || [],
       });
     } catch (err) {
       // Client-side fallback filter

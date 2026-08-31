@@ -15,9 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import {
   fetchLiveTrendingMusic,
-  LIVE_PLAYLISTS,
   StreamingTrack,
-  StreamingPlaylist,
 } from '../../src/services/musicStreaming';
 import {
   fetchJamendoTracks,
@@ -45,7 +43,6 @@ export default function MusicTab() {
   const [jamendoLoading, setJamendoLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
-  const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
@@ -114,27 +111,12 @@ export default function MusicTab() {
     let query: string | undefined;
     if (selectedGenre !== 'All') {
       query = selectedGenre.toLowerCase();
-    } else if (selectedPlaylist) {
-      query = LIVE_PLAYLISTS.find((p) => p.id === selectedPlaylist)?.query;
     }
     loadMusic(query, true);
   };
 
   const handleGenreSelect = (genre: string) => {
     setSelectedGenre(genre);
-    setSelectedPlaylist(null);
-  };
-
-  const handlePlaylistSelect = (playlist: StreamingPlaylist) => {
-    if (selectedPlaylist === playlist.id) {
-      setSelectedPlaylist(null);
-      const query = selectedGenre !== 'All' ? selectedGenre.toLowerCase() : undefined;
-      loadMusic(query, true);
-    } else {
-      setSelectedPlaylist(playlist.id);
-      setSelectedGenre('All');
-      loadMusic(playlist.query, true);
-    }
   };
 
   const handleInlinePlay = async (track: StreamingTrack | JamendoTrack) => {
@@ -450,55 +432,6 @@ export default function MusicTab() {
           </>
         ) : (
           <>
-            {/* Featured Playlists Section */}
-            <Text style={styles.sectionTitle}>Featured Playlists</Text>
-
-            <View style={styles.featuredPlaylistsContainer}>
-              {LIVE_PLAYLISTS.map((playlist) => {
-                const isSelected = selectedPlaylist === playlist.id;
-                return (
-                  <TouchableOpacity
-                    key={playlist.id}
-                    style={[
-                      styles.playlistCard,
-                      isSelected && styles.selectedPlaylistCard,
-                    ]}
-                    onPress={() => handlePlaylistSelect(playlist)}
-                    activeOpacity={0.9}
-                  >
-                    <LinearGradient
-                      colors={playlist.colors as any}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.playlistGradient}
-                    >
-                      <View style={styles.playlistLeft}>
-                        <Image
-                          source={{ uri: playlist.image }}
-                          style={styles.playlistThumb}
-                        />
-                        <View style={styles.playlistMeta}>
-                          <Text style={styles.playlistTitle}>{playlist.title}</Text>
-                          <Text style={styles.playlistSongs}>
-                            {isSelected ? 'Active Filter • Tap to Reset' : playlist.songsCount}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.playlistPlayBtn}>
-                        <Ionicons
-                          name={isSelected ? 'checkmark' : 'play'}
-                          size={20}
-                          color="#6d28d9"
-                          style={isSelected ? {} : { marginLeft: 3 }}
-                        />
-                      </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
             {/* Separate Full Songs Highlight Carousel */}
             {jamendoTracks.length > 0 && (
               <View style={styles.fullSongsHighlightSection}>
@@ -559,9 +492,7 @@ export default function MusicTab() {
             {/* Streaming Tracks List Section */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
-                {selectedPlaylist
-                  ? `${LIVE_PLAYLISTS.find((p) => p.id === selectedPlaylist)?.title || 'Playlist'} Tracks`
-                  : 'Trending Now'}
+                {selectedGenre !== 'All' ? `${selectedGenre} Hits` : 'Trending Now'}
               </Text>
               <TouchableOpacity
                 style={styles.refreshBadge}

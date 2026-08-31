@@ -398,10 +398,11 @@ export async function updateProfile(data: { name?: string; email?: string; passw
 }
 
 // --- Search ---
+// Returns: { query: string, results: { videos: [], tracks: [], articles: [] } }
 export async function searchContent(query: string) {
   const res = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
   if (!res.ok) throw new Error('Search failed');
-  return res.json(); // { results: { videos: [], tracks: [], articles: [] } } or similar
+  return res.json();
 }
 
 // --- Bookmarks ---

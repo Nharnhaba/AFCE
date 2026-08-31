@@ -60,6 +60,16 @@ export function setAuthToken(token: string | null) {
   authToken = token;
 }
 
+export async function getAuthHeaders() {
+  if (!authToken) {
+    await loadStoredToken();
+  }
+  return {
+    'Content-Type': 'application/json',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  };
+}
+
 function authHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -90,6 +100,9 @@ export async function loginUser(email: string, password: string) {
   });
   if (!res.ok) throw new Error((await res.json()).message || 'Login failed');
   const data = await res.json();
+  if (data.token) {
+    await saveAuthToken(data.token);
+  }
   if (data.user && data.user.name) {
     await saveStoredName(data.user.name);
   }
@@ -97,11 +110,18 @@ export async function loginUser(email: string, password: string) {
 }
 
 export async function getCurrentUser() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${BASE_URL}/api/user`, {
-    headers: authHeaders(),
+    headers,
   });
+  if (res.status === 401) {
+    const err: any = new Error('Unauthorized');
+    err.status = 401;
+    throw err;
+  }
   if (!res.ok) throw new Error('Failed to fetch user');
-  const user = await res.json();
+  const json = await res.json();
+  const user = json.user || json.data || json;
   if (user && user.name) {
     await saveStoredName(user.name);
   }
@@ -338,17 +358,31 @@ export async function deleteComment(id: string | number) {
 
 // --- Profile ---
 export async function getProfile() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${BASE_URL}/api/profile`, {
-    headers: authHeaders(),
+    headers,
   });
-  if (!res.ok) throw new Error('Failed to fetch profile');
-  return res.json();
+  if (res.status === 401) {
+    const err: any = new Error('Unauthorized');
+    err.status = 401;
+    throw err;
+  }
+  if (!res.ok) {
+    return getCurrentUser();
+  }
+  const json = await res.json();
+  const userData = json.user || json.data || json;
+  if (userData && userData.name) {
+    await saveStoredName(userData.name);
+  }
+  return userData;
 }
 
 export async function updateProfile(data: { name?: string; email?: string; password?: string; password_confirmation?: string }) {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${BASE_URL}/api/profile`, {
     method: 'PUT',
-    headers: authHeaders(),
+    headers,
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -356,8 +390,9 @@ export async function updateProfile(data: { name?: string; email?: string; passw
     throw new Error(err.message || 'Failed to update profile');
   }
   const result = await res.json();
-  if (result.user && result.user.name) {
-    await saveStoredName(result.user.name);
+  const userData = result.user || result.data || result;
+  if (userData && userData.name) {
+    await saveStoredName(userData.name);
   }
   return result;
 }

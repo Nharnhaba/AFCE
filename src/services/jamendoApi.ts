@@ -41,7 +41,8 @@ let cachedJamendoTracks: JamendoTrack[] = [];
  */
 export async function fetchJamendoTracks(tag?: string, forceRefresh = false): Promise<JamendoTrack[]> {
   try {
-    let url = `${JAMENDO_BASE_URL}?client_id=${CLIENT_ID}&format=json&limit=20&include=musicinfo&order=popularity_total&audioformat=mp32`;
+    const offset = forceRefresh ? Math.floor(Math.random() * 200) : 0;
+    let url = `${JAMENDO_BASE_URL}?client_id=${CLIENT_ID}&format=json&limit=20&offset=${offset}&include=musicinfo&order=popularity_total&audioformat=mp32`;
 
     if (tag && tag.toLowerCase() !== 'all') {
       const mappedTag = JAMENDO_GENRE_MAP[tag] || tag.toLowerCase().replace(/[^a-z0-9]/g, '');

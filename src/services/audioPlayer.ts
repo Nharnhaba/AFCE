@@ -19,6 +19,8 @@ export interface PlaybackState {
   isLoading: boolean;
   currentTrackId: string | number | null;
   currentTrack: ActiveTrackInfo | null;
+  queueIndex?: number;
+  queueLength?: number;
   error?: string | null;
 }
 
@@ -27,6 +29,8 @@ let statusListenerSubscription: { remove: () => void } | null = null;
 let currentTrackUrl: string | null = null;
 let currentTrackId: string | number | null = null;
 let currentTrackMeta: ActiveTrackInfo | null = null;
+let trackQueue: ActiveTrackInfo[] = [];
+let currentQueueIndex: number = -1;
 let stateListeners: ((state: PlaybackState) => void)[] = [];
 
 let currentState: PlaybackState = {
@@ -36,6 +40,8 @@ let currentState: PlaybackState = {
   isLoading: false,
   currentTrackId: null,
   currentTrack: null,
+  queueIndex: -1,
+  queueLength: 0,
 };
 
 function notifyListeners() {
@@ -59,6 +65,54 @@ export async function initAudioMode() {
   } catch (err) {
     console.warn('Audio mode init warning:', err);
   }
+}
+
+/**
+ * Load a playlist/queue of tracks and immediately start playing from startIndex
+ */
+export async function setQueue(tracks: ActiveTrackInfo[], startIndex: number = 0) {
+  trackQueue = [...tracks];
+  const safeIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
+  currentQueueIndex = safeIndex;
+
+  const trackToPlay = trackQueue[safeIndex];
+  if (trackToPlay && trackToPlay.audio_url) {
+    await playTrack(trackToPlay.id, trackToPlay.audio_url, trackToPlay);
+  }
+}
+
+/**
+ * Play the next track in the queue
+ */
+export async function playNext(): Promise<boolean> {
+  if (trackQueue.length === 0) return false;
+
+  const nextIndex = (currentQueueIndex + 1) % trackQueue.length;
+  currentQueueIndex = nextIndex;
+  const nextTrack = trackQueue[nextIndex];
+
+  if (nextTrack && nextTrack.audio_url) {
+    await playTrack(nextTrack.id, nextTrack.audio_url, nextTrack);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Play the previous track in the queue
+ */
+export async function playPrevious(): Promise<boolean> {
+  if (trackQueue.length === 0) return false;
+
+  const prevIndex = currentQueueIndex <= 0 ? trackQueue.length - 1 : currentQueueIndex - 1;
+  currentQueueIndex = prevIndex;
+  const prevTrack = trackQueue[prevIndex];
+
+  if (prevTrack && prevTrack.audio_url) {
+    await playTrack(prevTrack.id, prevTrack.audio_url, prevTrack);
+    return true;
+  }
+  return false;
 }
 
 export async function playTrack(
@@ -100,6 +154,15 @@ export async function playTrack(
       };
     }
 
+    // Check if track is already in queue or add it
+    const existingIndex = trackQueue.findIndex((t) => t.id.toString() === trackId.toString());
+    if (existingIndex >= 0) {
+      currentQueueIndex = existingIndex;
+    } else if (currentTrackMeta) {
+      trackQueue = [currentTrackMeta, ...trackQueue];
+      currentQueueIndex = 0;
+    }
+
     if (currentTrackUrl === audioUrl && playerInstance) {
       if (playerInstance.playing) {
         playerInstance.pause();
@@ -127,6 +190,8 @@ export async function playTrack(
       isLoading: true,
       currentTrackId: trackId,
       currentTrack: currentTrackMeta,
+      queueIndex: currentQueueIndex,
+      queueLength: trackQueue.length,
       error: null,
     };
     notifyListeners();
@@ -145,12 +210,18 @@ export async function playTrack(
         isLoading: status.isBuffering && !status.playing,
         currentTrackId,
         currentTrack: currentTrackMeta,
+        queueIndex: currentQueueIndex,
+        queueLength: trackQueue.length,
         error: null,
       };
 
       if (status.didJustFinish) {
         currentState.isPlaying = false;
         currentState.positionMillis = 0;
+        // Auto play next in queue
+        if (trackQueue.length > 1) {
+          playNext();
+        }
       }
 
       notifyListeners();
@@ -212,6 +283,8 @@ export async function stopPlayback() {
       isLoading: false,
       currentTrackId: null,
       currentTrack: null,
+      queueIndex: -1,
+      queueLength: trackQueue.length,
     };
     notifyListeners();
   }

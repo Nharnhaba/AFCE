@@ -15,13 +15,20 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { clearAuthToken, getCurrentUser, getProfile, updateProfile } from '../../src/services/api';
+import {
+  clearAuthToken,
+  getCurrentUser,
+  getProfile,
+  updateProfile,
+  loadStoredToken,
+} from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
 
 export default function ProfileTab() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editVisible, setEditVisible] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -32,15 +39,41 @@ export default function ProfileTab() {
   const [editPasswordConfirm, setEditPasswordConfirm] = useState('');
 
   const loadUser = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const u = await getCurrentUser();
-      setUser(u);
-    } catch (err) {
-      console.error('Failed to load user info:', err);
+      const token = await loadStoredToken();
+      if (!token) {
+        // No auth token, prompt user to log in
+        router.replace('/login');
+        return;
+      }
+
+      let profileData: any = null;
+      try {
+        profileData = await getProfile();
+      } catch (err: any) {
+        if (err?.status === 401 || err?.message?.toLowerCase().includes('unauthorized')) {
+          await clearAuthToken();
+          router.replace('/login');
+          return;
+        }
+        profileData = await getCurrentUser();
+      }
+
+      setUser(profileData);
+    } catch (err: any) {
+      console.error('Failed to load profile data:', err);
+      if (err?.status === 401 || err?.message?.toLowerCase().includes('unauthorized')) {
+        await clearAuthToken();
+        router.replace('/login');
+        return;
+      }
+      setError('Could not load profile. Please check your connection or log in again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     loadUser();
@@ -107,15 +140,23 @@ export default function ProfileTab() {
   if (loading) {
     return (
       <View style={styles.centered}>
+        <MovingBackground type="all" direction="diagonal" opacity={0.35} />
+        <LinearGradient
+          colors={['rgba(10,10,15,0.3)', 'rgba(10,10,15,0.85)', '#0a0a0f']}
+          style={StyleSheet.absoluteFill}
+        />
         <ActivityIndicator size="large" color="#a855f7" />
+        <Text style={{ color: '#94a3b8', marginTop: 12, fontSize: 14 }}>Loading profile...</Text>
       </View>
     );
   }
 
-  const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'T';
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'User');
+  const displayEmail = user?.email || 'No email registered';
+  const initial = displayName.charAt(0).toUpperCase();
   const usernameHandle = user?.email
     ? `@${user.email.split('@')[0]}`
-    : '@tinodavin';
+    : `@${displayName.toLowerCase().replace(/\s+/g, '')}`;
 
   const menuItems = [
     {
@@ -186,6 +227,16 @@ export default function ProfileTab() {
           </TouchableOpacity>
         </View>
 
+        {error && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={18} color="#ef4444" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={loadUser} style={styles.retryBadge}>
+              <Text style={styles.retryBadgeText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Profile Card Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
@@ -198,7 +249,7 @@ export default function ProfileTab() {
           </View>
 
           <View style={styles.profileTextContainer}>
-            <Text style={styles.profileName}>{user?.name || 'Tino Davin'}</Text>
+            <Text style={styles.profileName}>{displayName}</Text>
             <Text style={styles.profileHandle}>{usernameHandle}</Text>
             <TouchableOpacity
               style={styles.editProfilePill}
@@ -212,17 +263,17 @@ export default function ProfileTab() {
         {/* Stats Row */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>128</Text>
-            <Text style={styles.statLabel}>Posts</Text>
+            <Text style={styles.statNumber}>{user?.posts_count ?? user?.videos_count ?? 12}</Text>
+            <Text style={styles.statLabel}>Uploads</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>2.3K</Text>
+            <Text style={styles.statNumber}>{user?.followers_count ?? '1.2K'}</Text>
             <Text style={styles.statLabel}>Followers</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>420</Text>
+            <Text style={styles.statNumber}>{user?.following_count ?? 240}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
@@ -232,11 +283,11 @@ export default function ProfileTab() {
           <Text style={styles.detailsCardTitle}>Account Details</Text>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Full Name</Text>
-            <Text style={styles.detailVal}>{user?.name || 'Tino Davin'}</Text>
+            <Text style={styles.detailVal}>{displayName}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Email</Text>
-            <Text style={styles.detailVal}>{user?.email || 'tino@afce.media'}</Text>
+            <Text style={styles.detailVal}>{displayEmail}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Account Role</Text>
@@ -721,5 +772,32 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontWeight: '600',
     fontSize: 14,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    flex: 1,
+    color: '#fca5a5',
+    fontSize: 13,
+  },
+  retryBadge: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  retryBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

@@ -24,7 +24,11 @@ import {
   JamendoTrack,
 } from '../../src/services/jamendoApi';
 import {
+  fetchCCMixterTracks,
+} from '../../src/services/ccmixterApi';
+import {
   playTrack,
+  setQueue,
   subscribePlaybackState,
   PlaybackState,
 } from '../../src/services/audioPlayer';
@@ -38,6 +42,7 @@ export default function MusicTab() {
   const [jamendoTracks, setJamendoTracks] = useState<JamendoTrack[]>([]);
   const [activeSource, setActiveSource] = useState<'trending' | 'full_songs'>('trending');
   const [loading, setLoading] = useState(true);
+  const [jamendoLoading, setJamendoLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
@@ -50,6 +55,8 @@ export default function MusicTab() {
     isLoading: false,
     currentTrackId: null,
     currentTrack: null,
+    queueIndex: -1,
+    queueLength: 0,
   });
 
   useEffect(() => {
@@ -78,20 +85,24 @@ export default function MusicTab() {
     } else {
       setLoading(true);
     }
+    setJamendoLoading(true);
 
     try {
       const genreTag = selectedGenre !== 'All' ? selectedGenre : undefined;
-      const [trendingData, fullData] = await Promise.all([
+      const [trendingData, fullData, ccmData] = await Promise.all([
         fetchLiveTrendingMusic(query || genreTag?.toLowerCase(), isRefresh),
         fetchJamendoTracks(genreTag, isRefresh),
+        fetchCCMixterTracks(genreTag, isRefresh),
       ]);
       setTracks(trendingData || []);
-      setJamendoTracks(fullData || []);
+      const combined = [...(fullData || []), ...(ccmData || [])];
+      setJamendoTracks(combined);
     } catch (err) {
       console.error('Failed to load music streams:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setJamendoLoading(false);
     }
   }, [selectedGenre]);
 
@@ -127,15 +138,30 @@ export default function MusicTab() {
   };
 
   const handleInlinePlay = async (track: StreamingTrack | JamendoTrack) => {
-    if (track.audio_url) {
+    const currentList = activeSource === 'full_songs' ? jamendoTracks : tracks;
+    const queueList = currentList.map((t) => ({
+      id: t.id,
+      title: t.title,
+      artist: t.artist,
+      cover_art_url: t.cover_art_url,
+      audio_url: t.audio_url,
+      duration: t.duration,
+      link: t.link || (t as any).source_url || (t as any).external_url,
+      source_url: (t as any).source_url || t.link,
+      external_url: (t as any).external_url || t.link,
+    }));
+    const index = queueList.findIndex((t) => t.id.toString() === track.id.toString());
+    if (index >= 0) {
+      await setQueue(queueList, index);
+    } else if (track.audio_url) {
       await playTrack(track.id, track.audio_url, {
         title: track.title,
         artist: track.artist,
         cover_art_url: track.cover_art_url,
         duration: track.duration,
-        link: track.link || track.source_url || track.external_url,
-        source_url: track.source_url || track.link,
-        external_url: track.external_url || track.link,
+        link: track.link || (track as any).source_url || (track as any).external_url,
+        source_url: (track as any).source_url || track.link,
+        external_url: (track as any).external_url || track.link,
       });
     } else {
       router.push({ pathname: '/music/[id]', params: { id: track.id } } as any);
@@ -291,34 +317,42 @@ export default function MusicTab() {
           </ScrollView>
         </View>
 
-        {/* If Active Source is Full Songs: Render Jamendo Library */}
+        {/* If Active Source is Full Songs: Render Jamendo & ccMixter Library */}
         {activeSource === 'full_songs' ? (
           <>
             <View style={styles.sectionHeader}>
               <View>
                 <Text style={styles.sectionTitle}>Full Songs (Free Library)</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Direct full-length 3–5 min streamable MP3 tracks from Jamendo
+                  Direct full-length streamable MP3 tracks from Jamendo & ccMixter
                 </Text>
               </View>
               <TouchableOpacity
                 style={styles.refreshBadge}
                 onPress={handleRefreshClick}
-                disabled={refreshing}
+                disabled={refreshing || jamendoLoading}
               >
                 <Animated.View style={{ transform: [{ rotate: spin }] }}>
                   <Ionicons name="sync-outline" size={14} color="#10b981" />
                 </Animated.View>
                 <Text style={[styles.refreshBadgeText, { color: '#34d399' }]}>
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                  {refreshing || jamendoLoading ? 'Refreshing...' : 'Refresh'}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {loading && !refreshing ? (
-              <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#10b981" />
-                <Text style={styles.loadingText}>Loading full-length music library...</Text>
+            {jamendoLoading ? (
+              <View style={styles.tracksList}>
+                {[1, 2, 3, 4, 5, 6].map((key) => (
+                  <View key={key} style={styles.skeletonTrackItem}>
+                    <View style={styles.skeletonCover} />
+                    <View style={styles.skeletonInfo}>
+                      <View style={styles.skeletonTitle} />
+                      <View style={styles.skeletonArtist} />
+                    </View>
+                    <View style={styles.skeletonButton} />
+                  </View>
+                ))}
               </View>
             ) : (
               <View style={styles.tracksList}>
@@ -1068,5 +1102,44 @@ const styles = StyleSheet.create({
   retryBtnText: {
     color: '#c084fc',
     fontWeight: '600',
+  },
+  skeletonTrackItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161622',
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#242436',
+    opacity: 0.6,
+  },
+  skeletonCover: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
+    marginRight: 12,
+  },
+  skeletonInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  skeletonTitle: {
+    width: '65%',
+    height: 14,
+    borderRadius: 6,
+    backgroundColor: '#1e293b',
+  },
+  skeletonArtist: {
+    width: '40%',
+    height: 10,
+    borderRadius: 4,
+    backgroundColor: '#1e293b',
+  },
+  skeletonButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#1e293b',
   },
 });

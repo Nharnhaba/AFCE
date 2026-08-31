@@ -16,10 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getLiveTrackDetail, StreamingTrack } from '../../src/services/musicStreaming';
 import { getJamendoTrackDetail } from '../../src/services/jamendoApi';
+import { getCCMixterTrackDetail } from '../../src/services/ccmixterApi';
 import {
   playTrack,
   togglePlayPause,
   seekTo,
+  playNext,
+  playPrevious,
   subscribePlaybackState,
   PlaybackState,
 } from '../../src/services/audioPlayer';
@@ -45,12 +48,19 @@ export default function TrackDetailScreen() {
     isLoading: false,
     currentTrackId: null,
     currentTrack: null,
+    queueIndex: -1,
+    queueLength: 0,
   });
 
   useEffect(() => {
-    const unsubscribe = subscribePlaybackState(setPlaybackState);
+    const unsubscribe = subscribePlaybackState((state) => {
+      setPlaybackState(state);
+      if (state.currentTrack && state.currentTrackId !== track?.id) {
+        setTrack(state.currentTrack);
+      }
+    });
     return unsubscribe;
-  }, []);
+  }, [track?.id]);
 
   useEffect(() => {
     if (!id) return;
@@ -80,6 +90,24 @@ export default function TrackDetailScreen() {
                 link: jamendoData.link,
                 source_url: jamendoData.source_url,
                 external_url: jamendoData.external_url,
+              });
+            }
+          }
+        } else if (trackId.startsWith('ccm-')) {
+          // ccMixter Creative Commons track
+          const ccmData = await getCCMixterTrackDetail(trackId);
+          if (ccmData) {
+            setTrack(ccmData);
+            setLikesCount(ccmData.likes_count || 150);
+            if (ccmData.audio_url) {
+              await playTrack(ccmData.id, ccmData.audio_url, {
+                title: ccmData.title,
+                artist: ccmData.artist,
+                cover_art_url: ccmData.cover_art_url,
+                duration: ccmData.duration,
+                link: ccmData.link,
+                source_url: ccmData.source_url,
+                external_url: ccmData.external_url,
               });
             }
           }
@@ -126,6 +154,20 @@ export default function TrackDetailScreen() {
         'Full Song Link Missing',
         'No source_url or external_url was provided for this track in the backend API.'
       );
+    }
+  };
+
+  const handleNext = async () => {
+    const switched = await playNext();
+    if (!switched) {
+      handleSeek(0);
+    }
+  };
+
+  const handlePrevious = async () => {
+    const switched = await playPrevious();
+    if (!switched) {
+      handleSeek(0);
     }
   };
 
@@ -300,7 +342,7 @@ export default function TrackDetailScreen() {
 
             <TouchableOpacity
               style={styles.sideControl}
-              onPress={() => handleSeek(0)}
+              onPress={handlePrevious}
             >
               <Ionicons name="play-skip-back" size={24} color="#fff" />
             </TouchableOpacity>
@@ -329,7 +371,7 @@ export default function TrackDetailScreen() {
 
             <TouchableOpacity
               style={styles.sideControl}
-              onPress={() => handleSeek(1)}
+              onPress={handleNext}
             >
               <Ionicons name="play-skip-forward" size={24} color="#fff" />
             </TouchableOpacity>

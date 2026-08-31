@@ -10,10 +10,12 @@ import {
   TextInput,
   Alert,
   Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getLiveTrackDetail, StreamingTrack } from '../../src/services/musicStreaming';
+import { getJamendoTrackDetail } from '../../src/services/jamendoApi';
 import {
   playTrack,
   togglePlayPause,
@@ -63,6 +65,24 @@ export default function TrackDetailScreen() {
           setTrack(beData);
           setLikesCount(beData.likes_count || 0);
           setLiked(!!beData.liked);
+        } else if (trackId.startsWith('jamendo-')) {
+          // Jamendo full-length track
+          const jamendoData = await getJamendoTrackDetail(trackId);
+          if (jamendoData) {
+            setTrack(jamendoData);
+            setLikesCount(jamendoData.likes_count || 220);
+            if (jamendoData.audio_url) {
+              await playTrack(jamendoData.id, jamendoData.audio_url, {
+                title: jamendoData.title,
+                artist: jamendoData.artist,
+                cover_art_url: jamendoData.cover_art_url,
+                duration: jamendoData.duration,
+                link: jamendoData.link,
+                source_url: jamendoData.source_url,
+                external_url: jamendoData.external_url,
+              });
+            }
+          }
         } else {
           // Live streaming track
           const liveData = await getLiveTrackDetail(trackId);
@@ -76,6 +96,9 @@ export default function TrackDetailScreen() {
                 artist: liveData.artist,
                 cover_art_url: liveData.cover_art_url,
                 duration: liveData.duration,
+                link: liveData.link || liveData.source_url || liveData.external_url,
+                source_url: liveData.source_url || liveData.link,
+                external_url: liveData.external_url || liveData.link,
               });
             }
           }
@@ -90,6 +113,22 @@ export default function TrackDetailScreen() {
     fetchTrack();
   }, [id]);
 
+  const handleListenFullSong = async () => {
+    const fullUrl = track?.source_url || track?.external_url || track?.link || (track?.id ? `https://www.deezer.com/track/${track.id}` : null);
+    if (fullUrl) {
+      try {
+        await Linking.openURL(fullUrl);
+      } catch (e) {
+        Alert.alert('Error', 'Could not open the track link in your browser or music app.');
+      }
+    } else {
+      Alert.alert(
+        'Full Song Link Missing',
+        'No source_url or external_url was provided for this track in the backend API.'
+      );
+    }
+  };
+
   const handlePlayToggle = async () => {
     if (!track) return;
     if (playbackState.currentTrackId === track.id) {
@@ -100,6 +139,9 @@ export default function TrackDetailScreen() {
         artist: track.artist,
         cover_art_url: track.cover_art_url,
         duration: track.duration,
+        link: track.link || track.source_url || track.external_url,
+        source_url: track.source_url || track.link,
+        external_url: track.external_url || track.link,
       });
     }
   };
@@ -296,6 +338,23 @@ export default function TrackDetailScreen() {
               <Ionicons name="repeat" size={22} color="#94a3b8" />
             </TouchableOpacity>
           </View>
+
+          {/* Listen Full Song Button */}
+          <TouchableOpacity
+            style={styles.listenFullSongBtn}
+            onPress={handleListenFullSong}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.listenFullSongGradient}
+            >
+              <Ionicons name="open-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.listenFullSongText}>Listen Full Song</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Action Row */}
@@ -527,6 +586,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  listenFullSongBtn: {
+    width: '90%',
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginTop: 20,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  listenFullSongGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listenFullSongText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',

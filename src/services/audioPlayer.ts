@@ -7,6 +7,9 @@ export interface ActiveTrackInfo {
   cover_art_url: string;
   audio_url: string;
   duration?: number;
+  link?: string;
+  source_url?: string;
+  external_url?: string;
 }
 
 export interface PlaybackState {
@@ -63,7 +66,15 @@ export async function initAudioMode() {
 export async function playTrack(
   trackId: string | number,
   audioUrl: string,
-  meta?: { title?: string; artist?: string; cover_art_url?: string; duration?: number }
+  meta?: {
+    title?: string;
+    artist?: string;
+    cover_art_url?: string;
+    duration?: number;
+    link?: string;
+    source_url?: string;
+    external_url?: string;
+  }
 ) {
   try {
     await initAudioMode();
@@ -76,6 +87,9 @@ export async function playTrack(
         cover_art_url: meta.cover_art_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600',
         audio_url: audioUrl,
         duration: meta.duration || 180,
+        link: meta.link || meta.source_url || meta.external_url || '',
+        source_url: meta.source_url || meta.link || '',
+        external_url: meta.external_url || meta.link || '',
       };
     } else if (!currentTrackMeta || currentTrackMeta.id !== trackId) {
       currentTrackMeta = {

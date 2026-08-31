@@ -13,6 +13,8 @@ export interface StreamingTrack {
   rank?: number;
   likes_count?: number;
   link?: string;
+  source_url?: string;
+  external_url?: string;
 }
 
 export interface StreamingPlaylist {

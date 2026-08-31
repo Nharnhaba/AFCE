@@ -15,59 +15,12 @@ import MovingBackground from '../src/components/MovingBackground';
 
 const DOWNLOAD_TABS = ['Videos', 'Music', 'Articles'];
 
-const MOCK_DOWNLOADED_VIDEOS = [
-  {
-    id: 1,
-    title: 'The Future of AI',
-    duration: '4:35',
-    size: '106 MB',
-    thumbnail: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=400',
-  },
-  {
-    id: 2,
-    title: 'Beautiful Destinations',
-    duration: '8:12',
-    size: '210 MB',
-    thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
-  },
-  {
-    id: 3,
-    title: 'Workout Motivation',
-    duration: '4:02',
-    size: '80 MB',
-    thumbnail: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400',
-  },
-  {
-    id: 4,
-    title: 'Behind The Scenes',
-    duration: '3:21',
-    size: '75 MB',
-    thumbnail: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400',
-  },
-];
-
-const MOCK_DOWNLOADED_MUSIC = [
-  {
-    id: 101,
-    title: 'Afrobeats & Amapiano Party 2026',
-    duration: '4:44',
-    size: '11 MB',
-    thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400',
-  },
-  {
-    id: 102,
-    title: 'High Life',
-    duration: '2:41',
-    size: '6.4 MB',
-    thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400',
-  },
-];
-
 export default function DownloadsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Videos');
-  const [videos, setVideos] = useState(MOCK_DOWNLOADED_VIDEOS);
-  const [music, setMusic] = useState(MOCK_DOWNLOADED_MUSIC);
+  const [videos, setVideos] = useState<any[]>([]);
+  const [music, setMusic] = useState<any[]>([]);
+  const [articles, setArticles] = useState<any[]>([]);
 
   const handleDelete = (id: number, type: string) => {
     Alert.alert('Delete Download', 'Remove this item from offline downloads?', [
@@ -78,15 +31,17 @@ export default function DownloadsScreen() {
         onPress: () => {
           if (type === 'Videos') {
             setVideos((prev) => prev.filter((v) => v.id !== id));
-          } else {
+          } else if (type === 'Music') {
             setMusic((prev) => prev.filter((m) => m.id !== id));
+          } else {
+            setArticles((prev) => prev.filter((a) => a.id !== id));
           }
         },
       },
     ]);
   };
 
-  const currentItems = activeTab === 'Videos' ? videos : activeTab === 'Music' ? music : [];
+  const currentItems = activeTab === 'Videos' ? videos : activeTab === 'Music' ? music : articles;
 
   return (
     <View style={styles.container}>
@@ -103,8 +58,11 @@ export default function DownloadsScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Downloads</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => Alert.alert('Edit Downloads', 'Select items to delete.')}>
-          <Feather name="edit-2" size={18} color="#fff" />
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => Alert.alert('Downloads', 'Offline storage management')}
+        >
+          <Feather name="folder" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -139,14 +97,15 @@ export default function DownloadsScreen() {
             style={styles.downloadCard}
             onPress={() => {
               if (activeTab === 'Videos') router.push(`/video/${item.id}` as any);
-              else router.push(`/music/${item.id}` as any);
+              else if (activeTab === 'Music') router.push(`/music/${item.id}` as any);
+              else router.push(`/news/${item.id}` as any);
             }}
             activeOpacity={0.85}
           >
             <View style={styles.thumbWrapper}>
               <Image source={{ uri: item.thumbnail }} style={styles.thumb} />
               <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>{item.duration}</Text>
+                <Text style={styles.durationText}>{item.duration || '0:00'}</Text>
               </View>
             </View>
 
@@ -155,7 +114,7 @@ export default function DownloadsScreen() {
                 {item.title}
               </Text>
               <Text style={styles.itemMeta}>
-                {item.duration} • {item.size}
+                {item.duration || '0:00'} • {item.size || 'Local File'}
               </Text>
             </View>
 
@@ -163,15 +122,18 @@ export default function DownloadsScreen() {
               style={styles.menuBtn}
               onPress={() => handleDelete(item.id, activeTab)}
             >
-              <Ionicons name="ellipsis-vertical" size={18} color="#64748b" />
+              <Ionicons name="trash-outline" size={18} color="#ef4444" />
             </TouchableOpacity>
           </TouchableOpacity>
         ))}
 
         {currentItems.length === 0 && (
           <View style={styles.emptyState}>
-            <Ionicons name="cloud-download-outline" size={48} color="#475569" />
-            <Text style={styles.emptyText}>No offline downloads in {activeTab}</Text>
+            <Ionicons name="cloud-download-outline" size={54} color="#334155" />
+            <Text style={styles.emptyTitle}>No Downloads</Text>
+            <Text style={styles.emptyText}>
+              Downloaded {activeTab.toLowerCase()} will appear here for offline viewing.
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -293,12 +255,19 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
+  },
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
   },
   emptyText: {
     color: '#64748b',
     fontSize: 14,
-    marginTop: 12,
-    fontStyle: 'italic',
+    marginTop: 6,
+    textAlign: 'center',
+    paddingHorizontal: 30,
   },
 });

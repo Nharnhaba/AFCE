@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   StyleSheet,
@@ -14,7 +14,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome, AntDesign } from '@expo/vector-icons';
-import { loginUser, saveAuthToken } from '../src/services/api';
+import { loginUser, saveAuthToken, loadRememberedEmail, saveRememberedEmail } from '../src/services/api';
 import MovingBackground from '../src/components/MovingBackground';
 
 export default function LoginScreen() {
@@ -23,6 +23,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const initEmail = async () => {
+      const savedEmail = await loadRememberedEmail();
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
+    };
+    initEmail();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -34,6 +44,7 @@ export default function LoginScreen() {
     try {
       const response = await loginUser(email, password);
       await saveAuthToken(response.token);
+      await saveRememberedEmail(email);
       router.replace('/home');
     } catch (err: any) {
       Alert.alert('Login failed', err.message || 'Invalid credentials');

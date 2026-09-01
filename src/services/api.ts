@@ -25,6 +25,22 @@ export async function saveAuthToken(token: string) {
 }
 
 const NAME_KEY = 'auth_user_name';
+const REMEMBERED_EMAIL_KEY = 'remembered_email';
+
+export async function loadRememberedEmail() {
+  try {
+    return await SecureStore.getItemAsync(REMEMBERED_EMAIL_KEY);
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function saveRememberedEmail(email: string) {
+  try {
+    await SecureStore.setItemAsync(REMEMBERED_EMAIL_KEY, email);
+  } catch (err) {}
+}
+
 
 export async function loadStoredName() {
   try {

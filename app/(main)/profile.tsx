@@ -87,7 +87,7 @@ export default function ProfileTab() {
         style: 'destructive',
         onPress: async () => {
           await clearAuthToken();
-          router.replace('/login');
+          router.replace('/onboarding');
         },
       },
     ]);

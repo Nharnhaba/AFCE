@@ -41,7 +41,7 @@ let cachedJamendoTracks: JamendoTrack[] = [];
  */
 export async function fetchJamendoTracks(tag?: string, forceRefresh = false): Promise<JamendoTrack[]> {
   try {
-    const offset = forceRefresh ? Math.floor(Math.random() * 200) : 0;
+    const offset = forceRefresh ? Math.floor(Math.random() * 40) : 0;
     let url = `${JAMENDO_BASE_URL}?client_id=${CLIENT_ID}&format=json&limit=20&offset=${offset}&include=musicinfo&order=popularity_total&audioformat=mp32`;
 
     if (tag && tag.toLowerCase() !== 'all') {
@@ -84,6 +84,8 @@ export async function fetchJamendoTracks(tag?: string, forceRefresh = false): Pr
     if (formattedTracks.length > 0) {
       cachedJamendoTracks = formattedTracks;
       return formattedTracks;
+    } else if (forceRefresh && offset > 0) {
+      return await fetchJamendoTracks(tag, false);
     }
 
     return cachedJamendoTracks;

@@ -32,7 +32,7 @@ let cachedCCMixterTracks: JamendoTrack[] = [];
  */
 export async function fetchCCMixterTracks(tag?: string, forceRefresh = false): Promise<JamendoTrack[]> {
   try {
-    const offset = forceRefresh ? Math.floor(Math.random() * 50) : 0;
+    const offset = forceRefresh ? Math.floor(Math.random() * 40) : 0;
     let url = `${CCMIXTER_BASE_URL}?f=json&limit=20&offset=${offset}&sort=date`;
 
     if (tag && tag.toLowerCase() !== 'all') {
@@ -81,6 +81,8 @@ export async function fetchCCMixterTracks(tag?: string, forceRefresh = false): P
     if (tracks.length > 0) {
       cachedCCMixterTracks = tracks;
       return tracks;
+    } else if (forceRefresh && offset > 0) {
+      return await fetchCCMixterTracks(tag, false);
     }
 
     return cachedCCMixterTracks;

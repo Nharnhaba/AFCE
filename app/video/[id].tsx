@@ -27,6 +27,7 @@ import {
   toggleLike,
   toggleBookmark,
 } from '../../src/services/api';
+import { downloadMedia, isDownloaded, deleteDownload } from '../../src/services/downloadManager';
 import MovingBackground from '../../src/components/MovingBackground';
 
 export default function VideoDetailScreen() {
@@ -44,6 +45,10 @@ export default function VideoDetailScreen() {
   const [subscribed, setSubscribed] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
+
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isSavedOffline, setIsSavedOffline] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -69,6 +74,8 @@ export default function VideoDetailScreen() {
 
         const streams = await fetchLiveStreamingVideos('All');
         setUpNextVideos(streams.filter((v) => v.id.toString() !== videoId));
+
+        setIsSavedOffline(isDownloaded(videoId));
       } catch (err) {
         console.error('Failed to load video details:', err);
       } finally {
@@ -78,6 +85,44 @@ export default function VideoDetailScreen() {
 
     fetchDetails();
   }, [id]);
+
+  const handleDownloadToggle = async () => {
+    if (isSavedOffline) {
+      Alert.alert('Remove Download', 'Remove this video from your offline downloads?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteDownload(video.id);
+            setIsSavedOffline(false);
+          },
+        },
+      ]);
+      return;
+    }
+
+    setDownloading(true);
+    setDownloadProgress(0);
+    const success = await downloadMedia(
+      {
+        id: video.id,
+        type: 'video',
+        title: video.title,
+        artist: video.channel_name || 'Creator',
+        thumbnail: video.thumbnail_url || '',
+        url: video.video_url || video.link || 'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
+      },
+      (prog) => setDownloadProgress(prog)
+    );
+    setDownloading(false);
+    if (success) {
+      setIsSavedOffline(true);
+      Alert.alert('Downloaded', 'Video saved for offline viewing!');
+    } else {
+      Alert.alert('Error', 'Failed to download video.');
+    }
+  };
 
   const handleOpenExternal = async () => {
     if (video?.youtube_id) {
@@ -324,6 +369,25 @@ export default function VideoDetailScreen() {
               />
               <Text style={[styles.actionText, bookmarked && styles.activeActionText]}>
                 {bookmarked ? 'Saved' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={handleDownloadToggle}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator size="small" color="#c084fc" />
+              ) : (
+                <Ionicons
+                  name={isSavedOffline ? 'checkmark-circle' : 'cloud-download-outline'}
+                  size={20}
+                  color={isSavedOffline ? '#10b981' : '#94a3b8'}
+                />
+              )}
+              <Text style={[styles.actionText, isSavedOffline && { color: '#10b981' }]}>
+                {downloading ? `${Math.round(downloadProgress * 100)}%` : isSavedOffline ? 'Downloaded' : 'Download'}
               </Text>
             </TouchableOpacity>
           </View>

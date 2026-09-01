@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,40 +8,49 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import MovingBackground from '../src/components/MovingBackground';
+import { getDownloadedItems, deleteDownload, DownloadedItem, formatBytes } from '../src/services/downloadManager';
 
 const DOWNLOAD_TABS = ['Videos', 'Music', 'Articles'];
 
 export default function DownloadsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Videos');
-  const [videos, setVideos] = useState<any[]>([]);
-  const [music, setMusic] = useState<any[]>([]);
-  const [articles, setArticles] = useState<any[]>([]);
+  const [items, setItems] = useState<DownloadedItem[]>([]);
 
-  const handleDelete = (id: number, type: string) => {
+  const loadDownloads = useCallback(() => {
+    const fetchedItems = getDownloadedItems();
+    setItems(fetchedItems);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDownloads();
+    }, [loadDownloads])
+  );
+
+  const handleDelete = (id: string) => {
     Alert.alert('Delete Download', 'Remove this item from offline downloads?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          if (type === 'Videos') {
-            setVideos((prev) => prev.filter((v) => v.id !== id));
-          } else if (type === 'Music') {
-            setMusic((prev) => prev.filter((m) => m.id !== id));
-          } else {
-            setArticles((prev) => prev.filter((a) => a.id !== id));
-          }
+        onPress: async () => {
+          await deleteDownload(id);
+          loadDownloads();
         },
       },
     ]);
   };
 
-  const currentItems = activeTab === 'Videos' ? videos : activeTab === 'Music' ? music : articles;
+  const currentItems = items.filter((item) => {
+    if (activeTab === 'Videos') return item.type === 'video';
+    if (activeTab === 'Music') return item.type === 'track';
+    return item.type === 'article';
+  });
 
   return (
     <View style={styles.container}>
@@ -96,8 +105,8 @@ export default function DownloadsScreen() {
             key={item.id}
             style={styles.downloadCard}
             onPress={() => {
-              if (activeTab === 'Videos') router.push(`/video/${item.id}` as any);
-              else if (activeTab === 'Music') router.push(`/music/${item.id}` as any);
+              if (item.type === 'video') router.push(`/video/${item.id}` as any);
+              else if (item.type === 'track') router.push(`/music/${item.id}` as any);
               else router.push(`/news/${item.id}` as any);
             }}
             activeOpacity={0.85}
@@ -105,7 +114,7 @@ export default function DownloadsScreen() {
             <View style={styles.thumbWrapper}>
               <Image source={{ uri: item.thumbnail }} style={styles.thumb} />
               <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>{item.duration || '0:00'}</Text>
+                <Text style={styles.durationText}>{item.type.toUpperCase()}</Text>
               </View>
             </View>
 
@@ -114,13 +123,13 @@ export default function DownloadsScreen() {
                 {item.title}
               </Text>
               <Text style={styles.itemMeta}>
-                {item.duration || '0:00'} • {item.size || 'Local File'}
+                {item.artist || 'Local'} • {item.file_size || 'Unknown Size'}
               </Text>
             </View>
 
             <TouchableOpacity
               style={styles.menuBtn}
-              onPress={() => handleDelete(item.id, activeTab)}
+              onPress={() => handleDelete(item.id)}
             >
               <Ionicons name="trash-outline" size={18} color="#ef4444" />
             </TouchableOpacity>

@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,8 +7,53 @@ import MovingBackground from '../src/components/MovingBackground';
 
 const { width } = Dimensions.get('window');
 
+const ONBOARDING_DATA = [
+  {
+    id: '1',
+    titleLines: ['Discover.', 'Stream.'],
+    titleAccent: 'Enjoy.',
+    subtitle: 'All your favorite content in one place.',
+  },
+  {
+    id: '2',
+    titleLines: ['Listen to', 'Free Music.'],
+    titleAccent: 'Everywhere.',
+    subtitle: 'Jamendo and ccMixter full songs for free.',
+  },
+  {
+    id: '3',
+    titleLines: ['Watch', 'Trending'],
+    titleAccent: 'Videos.',
+    subtitle: 'Enjoy the latest YouTube videos instantly.',
+  },
+  {
+    id: '4',
+    titleLines: ['Read', 'Latest'],
+    titleAccent: 'News.',
+    subtitle: 'Stay updated with global articles.',
+  }
+];
+
 export default function OnboardingScreen() {
   const router = useRouter();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slideRef = useRef<FlatList>(null);
+
+  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems[0]) {
+      setCurrentIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+  const handleNext = () => {
+    if (currentIndex < ONBOARDING_DATA.length - 1) {
+      slideRef.current?.scrollToIndex({ index: currentIndex + 1 });
+    } else {
+      router.push('/login');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -21,15 +67,33 @@ export default function OnboardingScreen() {
       />
 
       <View style={styles.content}>
-        {/* Header Text */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.titleLine}>Discover.</Text>
-          <Text style={styles.titleLine}>Stream.</Text>
-          <Text style={[styles.titleLine, styles.titleAccent]}>Enjoy.</Text>
-          <Text style={styles.subtitle}>All your favorite content in one place.</Text>
+        {/* Swipable Header Text */}
+        <View style={styles.sliderContainer}>
+          <FlatList
+            data={ONBOARDING_DATA}
+            renderItem={({ item }) => (
+              <View style={styles.slide}>
+                <View style={styles.headerBlock}>
+                  {item.titleLines.map((line: string, index: number) => (
+                    <Text key={index} style={styles.titleLine}>{line}</Text>
+                  ))}
+                  <Text style={[styles.titleLine, styles.titleAccent]}>{item.titleAccent}</Text>
+                  <Text style={styles.subtitle}>{item.subtitle}</Text>
+                </View>
+              </View>
+            )}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            pagingEnabled
+            bounces={false}
+            keyExtractor={(item) => item.id}
+            onViewableItemsChanged={viewableItemsChanged}
+            viewabilityConfig={viewConfig}
+            ref={slideRef}
+          />
         </View>
 
-        {/* 3D Floating Cards Display */}
+        {/* 3D Floating Cards Display (Static background visual) */}
         <View style={styles.cardsContainer}>
           {/* Card 1: Music Card */}
           <LinearGradient
@@ -73,16 +137,21 @@ export default function OnboardingScreen() {
 
         {/* Pagination Dots */}
         <View style={styles.dotsRow}>
-          <View style={[styles.dot, styles.activeDot]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
+          {ONBOARDING_DATA.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                currentIndex === index && styles.activeDot,
+              ]}
+            />
+          ))}
         </View>
 
         {/* Action Buttons */}
         <TouchableOpacity
           style={styles.getStartedButton}
-          onPress={() => router.push('/login')}
+          onPress={handleNext}
           activeOpacity={0.85}
         >
           <LinearGradient
@@ -91,7 +160,9 @@ export default function OnboardingScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.gradientButton}
           >
-            <Text style={styles.getStartedText}>Get Started</Text>
+            <Text style={styles.getStartedText}>
+              {currentIndex === ONBOARDING_DATA.length - 1 ? 'Get Started' : 'Next'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -113,11 +184,17 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 28,
     paddingTop: 70,
     paddingBottom: 40,
     justifyContent: 'space-between',
     zIndex: 1,
+  },
+  sliderContainer: {
+    height: 180,
+  },
+  slide: {
+    width: width,
+    paddingHorizontal: 28,
   },
   headerBlock: {
     alignItems: 'flex-start',
@@ -236,7 +313,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#a855f7',
   },
   getStartedButton: {
-    width: '100%',
+    width: width - 56,
+    alignSelf: 'center',
     height: 54,
     borderRadius: 16,
     overflow: 'hidden',

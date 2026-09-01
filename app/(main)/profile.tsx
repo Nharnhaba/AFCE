@@ -175,7 +175,7 @@ export default function ProfileTab() {
       id: 'playlists',
       title: 'Playlists',
       icon: 'list-outline',
-      onPress: () => router.push('/(main)/music'),
+      onPress: () => router.push('/playlists'),
     },
     {
       id: 'downloads',

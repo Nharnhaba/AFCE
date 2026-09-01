@@ -30,7 +30,58 @@ import {
   subscribePlaybackState,
   PlaybackState,
 } from '../../src/services/audioPlayer';
+import { downloadMedia, isDownloaded, deleteDownload } from '../../src/services/downloadManager';
+import { Alert } from 'react-native';
+
+const TrackDownloadButton = ({ track }: { track: any }) => {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setSaved(isDownloaded(track.id));
+  }, [track.id]);
+
+  const handleToggle = async () => {
+    if (saved) {
+      Alert.alert('Remove', 'Remove from downloads?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: async () => {
+          await deleteDownload(track.id);
+          setSaved(false);
+        }}
+      ]);
+      return;
+    }
+    setDownloading(true);
+    setDownloadProgress(0);
+    const success = await downloadMedia({
+      id: track.id,
+      type: 'track',
+      title: track.title,
+      artist: track.artist,
+      thumbnail: track.cover_art_url || track.thumbnail_url || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=150',
+      url: track.audio_url || track.video_url || track.audio
+    }, (p) => setDownloadProgress(p));
+    setDownloading(false);
+    if (success) {
+      setSaved(true);
+      Alert.alert('Downloaded', 'Track saved for offline listening!');
+    }
+  };
+
+  if (downloading) {
+    return <ActivityIndicator size="small" color="#10b981" style={{ marginRight: 16 }} />;
+  }
+
+  return (
+    <TouchableOpacity onPress={handleToggle} style={{ marginRight: 16, padding: 4 }}>
+      <Ionicons name={saved ? 'checkmark-circle' : 'cloud-download-outline'} size={20} color={saved ? '#10b981' : '#64748b'} />
+    </TouchableOpacity>
+  );
+};
 import MovingBackground from '../../src/components/MovingBackground';
+import PlaylistModal from '../../src/components/PlaylistModal';
 
 const GENRES = ['All', 'Afrobeats', 'Gospel', 'Reggae', 'Hip-Hop', 'R&B', 'Pop'];
 
@@ -55,6 +106,14 @@ export default function MusicTab() {
     queueIndex: -1,
     queueLength: 0,
   });
+
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [selectedTrackId, setSelectedTrackId] = useState<string | number | null>(null);
+
+  const handleOpenPlaylistModal = (trackId: string | number) => {
+    setSelectedTrackId(trackId);
+    setPlaylistModalVisible(true);
+  };
 
   useEffect(() => {
     const unsubscribe = subscribePlaybackState(setPlaybackState);
@@ -394,6 +453,16 @@ export default function MusicTab() {
                         <Text style={styles.trackDuration}>
                           {formatDuration(item.duration)}
                         </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity
+                          onPress={() => handleOpenPlaylistModal(item.id)}
+                          style={{ marginRight: 8, padding: 4 }}
+                        >
+                          <Ionicons name="add-circle-outline" size={22} color="#64748b" />
+                        </TouchableOpacity>
+                        <TrackDownloadButton track={item} />
                       </View>
 
                       <TouchableOpacity

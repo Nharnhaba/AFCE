@@ -220,7 +220,7 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.bellButton}
-            onPress={() => router.push('/(main)/profile')}
+            onPress={() => router.push('/notifications')}
             activeOpacity={0.8}
           >
             <Ionicons name="notifications-outline" size={22} color="#fff" />

@@ -15,8 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MovingBackground from '../src/components/MovingBackground';
 import {
   getNotifications,
-  markNotificationRead,
   clearAllNotifications,
+  deleteNotification,
   AppNotification,
 } from '../src/services/notifications';
 
@@ -48,14 +48,10 @@ export default function NotificationsScreen() {
   };
 
   const handleMarkRead = async (id: string | number) => {
-    try {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
-      await markNotificationRead(id);
-    } catch (err) {
-      console.error(err);
-    }
+    // Simulate read locally, backend only has read-all
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
   };
 
   const handleClearAll = () => {

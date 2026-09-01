@@ -11,6 +11,7 @@ interface InteractionBarProps {
   initialLiked?: boolean;
   initialBookmarked?: boolean;
   onCommentPress: () => void;
+  onAddToPlaylist?: () => void;
   commentCount?: number;
 }
 
@@ -21,6 +22,7 @@ export default function InteractionBar({
   initialLiked = false,
   initialBookmarked = false,
   onCommentPress,
+  onAddToPlaylist,
   commentCount = 0,
 }: InteractionBarProps) {
   const router = useRouter();
@@ -106,6 +108,13 @@ export default function InteractionBar({
           </>
         )}
       </TouchableOpacity>
+
+      {type === 'track' && onAddToPlaylist && (
+        <TouchableOpacity style={styles.actionBtn} onPress={onAddToPlaylist}>
+          <Ionicons name="list-outline" size={24} color="#94a3b8" />
+          <Text style={styles.actionText}>Add</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

@@ -28,19 +28,25 @@ export async function getNotifications(): Promise<AppNotification[]> {
 }
 
 export async function markNotificationRead(id: string | number) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
-    method: 'POST',
-    headers,
-  });
-  if (!res.ok) throw new Error('Failed to mark read');
+  // Wait, backend api.php only has /notifications/read-all for marking all as read,
+  // but if we need individual delete we can use /notifications/{id}
+  // Let's implement individual deletion and mark all as read.
 }
 
 export async function clearAllNotifications() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${BASE_URL}/api/notifications`, {
+  const res = await fetch(`${BASE_URL}/api/notifications/read-all`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) throw new Error('Failed to mark all as read / clear');
+}
+
+export async function deleteNotification(id: string | number) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${BASE_URL}/api/notifications/${id}`, {
     method: 'DELETE',
     headers,
   });
-  if (!res.ok) throw new Error('Failed to clear notifications');
+  if (!res.ok) throw new Error('Failed to delete notification');
 }

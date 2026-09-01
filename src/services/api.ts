@@ -449,6 +449,15 @@ export async function getPlaylists() {
   return json.data || json;
 }
 
+export async function getPlaylist(playlistId: string | number) {
+  const res = await fetch(`${BASE_URL}/api/playlists/${playlistId}`, {
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch playlist details');
+  const json = await res.json();
+  return json.data || json;
+}
+
 export async function createPlaylist(name: string, description?: string) {
   const res = await fetch(`${BASE_URL}/api/playlists`, {
     method: 'POST',
@@ -509,5 +518,32 @@ export async function updateAdminUserRole(userId: string | number, role: 'admin'
     body: JSON.stringify({ role }),
   });
   if (!res.ok) throw new Error('Failed to update user role');
+  return res.json();
+}
+
+// --- Notifications ---
+export async function getNotifications() {
+  const res = await fetch(`${BASE_URL}/api/notifications`, {
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch notifications');
+  return res.json();
+}
+
+export async function markNotificationsAsRead() {
+  const res = await fetch(`${BASE_URL}/api/notifications/read-all`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to mark notifications as read');
+  return res.json();
+}
+
+export async function deleteNotification(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/notifications/${id}`, {
+    method: 'DELETE',
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete notification');
   return res.json();
 }

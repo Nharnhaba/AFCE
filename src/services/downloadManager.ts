@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 
 export interface DownloadedItem {
@@ -33,7 +33,7 @@ export function initDownloadsDB() {
 // Initialize the database on module load
 initDownloadsDB();
 
-const DOWNLOADS_FOLDER = FileSystem.Paths.document.uri + 'downloads/';
+const DOWNLOADS_FOLDER = FileSystem.documentDirectory + 'downloads/';
 
 async function ensureDirExists() {
   const dirInfo = await FileSystem.getInfoAsync(DOWNLOADS_FOLDER);

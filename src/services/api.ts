@@ -484,3 +484,30 @@ export async function deletePlaylist(playlistId: string | number) {
   });
   if (!res.ok) throw new Error('Failed to delete playlist');
 }
+
+// --- Admin ---
+export async function getAdminStats() {
+  const res = await fetch(`${BASE_URL}/api/admin/stats`, {
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch admin stats');
+  return res.json();
+}
+
+export async function getAdminUsers() {
+  const res = await fetch(`${BASE_URL}/api/admin/users`, {
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch admin users');
+  return res.json();
+}
+
+export async function updateAdminUserRole(userId: string | number, role: 'admin' | 'user') {
+  const res = await fetch(`${BASE_URL}/api/admin/users/${userId}/role`, {
+    method: 'PUT',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) throw new Error('Failed to update user role');
+  return res.json();
+}

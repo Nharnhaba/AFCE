@@ -94,11 +94,7 @@ export default function ProfileTab() {
   };
 
   const openEditModal = () => {
-    setEditName(user?.name || '');
-    setEditEmail(user?.email || '');
-    setEditPassword('');
-    setEditPasswordConfirm('');
-    setEditVisible(true);
+    router.push('/edit-profile');
   };
 
   const handleSaveProfile = async () => {
@@ -159,17 +155,21 @@ export default function ProfileTab() {
     : `@${displayName.toLowerCase().replace(/\s+/g, '')}`;
 
   const menuItems = [
+    ...(user?.role === 'admin'
+      ? [
+          {
+            id: 'admin-dashboard',
+            title: 'Admin Dashboard',
+            icon: 'shield-checkmark-outline',
+            onPress: () => router.push('/admin/dashboard'),
+          },
+        ]
+      : []),
     {
-      id: 'watch-later',
-      title: 'Watch Later',
-      icon: 'time-outline',
-      onPress: () => router.push('/(main)/videos'),
-    },
-    {
-      id: 'liked-videos',
-      title: 'Liked Videos',
-      icon: 'heart-outline',
-      onPress: () => router.push('/(main)/videos'),
+      id: 'bookmarks',
+      title: 'Bookmarks',
+      icon: 'bookmark-outline',
+      onPress: () => router.push('/bookmarks'),
     },
     {
       id: 'playlists',
@@ -185,9 +185,9 @@ export default function ProfileTab() {
     },
     {
       id: 'my-articles',
-      title: 'My Articles & Uploads',
-      icon: 'newspaper-outline',
-      onPress: () => router.push('/upload'),
+      title: 'Creator Dashboard',
+      icon: 'videocam-outline',
+      onPress: () => router.push('/my-content'),
     },
     {
       id: 'settings',
@@ -331,118 +331,6 @@ export default function ProfileTab() {
         </View>
       </ScrollView>
 
-      {/* Edit Profile Slide-up Modal */}
-      <Modal
-        visible={editVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Modal Header */}
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Edit Profile</Text>
-                <TouchableOpacity onPress={() => setEditVisible(false)}>
-                  <Ionicons name="close" size={24} color="#94a3b8" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Avatar Preview */}
-              <View style={styles.modalAvatarRow}>
-                <View style={styles.modalAvatar}>
-                  <Text style={styles.modalAvatarText}>
-                    {editName ? editName.charAt(0).toUpperCase() : 'T'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Name Input */}
-              <Text style={styles.inputLabel}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                value={editName}
-                onChangeText={setEditName}
-                placeholder="Your name"
-                placeholderTextColor="#64748b"
-                autoCapitalize="words"
-              />
-
-              {/* Email Input */}
-              <Text style={styles.inputLabel}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                value={editEmail}
-                onChangeText={setEditEmail}
-                placeholder="your@email.com"
-                placeholderTextColor="#64748b"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-
-              {/* Password Section Divider */}
-              <View style={styles.divider} />
-              <Text style={styles.sectionHint}>
-                Leave blank to keep your current password
-              </Text>
-
-              {/* New Password Input */}
-              <Text style={styles.inputLabel}>New Password</Text>
-              <TextInput
-                style={styles.input}
-                value={editPassword}
-                onChangeText={setEditPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#64748b"
-                secureTextEntry
-              />
-
-              {/* Confirm Password Input */}
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <TextInput
-                style={styles.input}
-                value={editPasswordConfirm}
-                onChangeText={setEditPasswordConfirm}
-                placeholder="••••••••"
-                placeholderTextColor="#64748b"
-                secureTextEntry
-              />
-
-              {/* Save Button */}
-              <TouchableOpacity
-                style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-                onPress={handleSaveProfile}
-                disabled={saving}
-              >
-                <LinearGradient
-                  colors={['#9333ea', '#7c3aed']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.saveGradient}
-                >
-                  {saving ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save Changes</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* Cancel Button */}
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setEditVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }

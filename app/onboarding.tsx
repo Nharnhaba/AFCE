@@ -40,7 +40,7 @@ export default function OnboardingScreen() {
   const slideRef = useRef<FlatList>(null);
 
   const viewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems[0]) {
+    if (viewableItems && viewableItems[0] && viewableItems[0].index !== undefined && viewableItems[0].index !== null) {
       setCurrentIndex(viewableItems[0].index);
     }
   }).current;
@@ -55,18 +55,50 @@ export default function OnboardingScreen() {
     }
   };
 
+  const handleBack = () => {
+    if (currentIndex > 0) {
+      slideRef.current?.scrollToIndex({ index: currentIndex - 1 });
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Dynamic Background */}
-      <MovingBackground type="onboarding" direction="vertical" opacity={0.6} />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <MovingBackground type="onboarding" direction="vertical" opacity={0.6} />
+      </View>
 
       {/* Dark gradient overlay */}
       <LinearGradient
+        pointerEvents="none"
         colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.8)', '#0a0a0f']}
         style={StyleSheet.absoluteFill}
       />
 
       <View style={styles.content}>
+        {/* Top Navigation Bar: Back Chevron (from slide 2 onward) & Skip */}
+        <View style={styles.topNavBar}>
+          {currentIndex > 0 ? (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBack}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40, height: 40 }} />
+          )}
+
+          <TouchableOpacity
+            style={styles.topSkipButton}
+            onPress={() => router.push('/login')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipText}>Skip</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Swipable Header Text */}
         <View style={styles.sliderContainer}>
           <FlatList
@@ -93,8 +125,8 @@ export default function OnboardingScreen() {
           />
         </View>
 
-        {/* 3D Floating Cards Display (Static background visual) */}
-        <View style={styles.cardsContainer}>
+        {/* 3D Floating Cards Display (Static background visual with pointerEvents none) */}
+        <View pointerEvents="none" style={styles.cardsContainer}>
           {/* Card 1: Music Card */}
           <LinearGradient
             colors={['#8b5cf6', '#6d28d9']}
@@ -135,43 +167,39 @@ export default function OnboardingScreen() {
           </LinearGradient>
         </View>
 
-        {/* Pagination Dots */}
-        <View style={styles.dotsRow}>
-          {ONBOARDING_DATA.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                currentIndex === index && styles.activeDot,
-              ]}
-            />
-          ))}
-        </View>
+        {/* Bottom Section */}
+        <View style={styles.bottomSection}>
+          {/* Pagination Dots */}
+          <View style={styles.dotsRow}>
+            {ONBOARDING_DATA.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  currentIndex === index && styles.activeDot,
+                ]}
+              />
+            ))}
+          </View>
 
-        {/* Action Buttons */}
-        <TouchableOpacity
-          style={styles.getStartedButton}
-          onPress={handleNext}
-          activeOpacity={0.85}
-        >
-          <LinearGradient
-            colors={['#9333ea', '#7c3aed']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
+          {/* Action Button */}
+          <TouchableOpacity
+            style={styles.getStartedButton}
+            onPress={handleNext}
+            activeOpacity={0.85}
           >
-            <Text style={styles.getStartedText}>
-              {currentIndex === ONBOARDING_DATA.length - 1 ? 'Get Started' : 'Next'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => router.push('/login')}
-        >
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={['#9333ea', '#7c3aed']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              <Text style={styles.getStartedText}>
+                {currentIndex === ONBOARDING_DATA.length - 1 ? 'Get Started' : 'Next'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -184,10 +212,35 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: 70,
-    paddingBottom: 40,
+    paddingTop: 54,
+    paddingBottom: 36,
     justifyContent: 'space-between',
     zIndex: 1,
+  },
+  topNavBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    marginBottom: 4,
+    height: 44,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#161622',
+    borderWidth: 1,
+    borderColor: '#242436',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topSkipButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  bottomSection: {
+    paddingBottom: 4,
   },
   sliderContainer: {
     height: 180,

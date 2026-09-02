@@ -247,10 +247,10 @@ export default function MovingBackground({
     );
   };
 
-  if (direction === 'horizontal') return <View style={[styles.container, { opacity }]}>{renderHorizontal()}</View>;
-  if (direction === 'diagonal') return <View style={[styles.container, { opacity }]}>{renderDiagonal()}</View>;
-  if (direction === 'circular') return <View style={[styles.container, { opacity }]}>{renderCircular()}</View>;
-  return <View style={[styles.container, { opacity }]}>{renderVertical()}</View>;
+  if (direction === 'horizontal') return <View pointerEvents="none" style={[styles.container, { opacity }]}>{renderHorizontal()}</View>;
+  if (direction === 'diagonal') return <View pointerEvents="none" style={[styles.container, { opacity }]}>{renderDiagonal()}</View>;
+  if (direction === 'circular') return <View pointerEvents="none" style={[styles.container, { opacity }]}>{renderCircular()}</View>;
+  return <View pointerEvents="none" style={[styles.container, { opacity }]}>{renderVertical()}</View>;
 }
 
 const styles = StyleSheet.create({

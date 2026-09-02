@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -169,30 +170,8 @@ export default function VideoDetailScreen() {
     return `${m}:${rem < 10 ? '0' : ''}${rem}`;
   };
 
-  // Generate exact embedded player HTML/URL
+  // Generate exact embedded player HTML/URL for non-YouTube hosted videos
   const getEmbedHtml = () => {
-    if (video?.youtube_id) {
-      return `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-            <style>
-              body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-              iframe { width: 100%; height: 100%; border: none; }
-            </style>
-          </head>
-          <body>
-            <iframe
-              src="https://www.youtube-nocookie.com/embed/${video.youtube_id}?autoplay=1&playsinline=1&modestbranding=1&rel=0"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowfullscreen
-            ></iframe>
-          </body>
-        </html>
-      `;
-    }
-
     if (video?.dailymotion_id) {
       return `
         <!DOCTYPE html>
@@ -215,7 +194,9 @@ export default function VideoDetailScreen() {
       `;
     }
 
-    // Default HTML5 video stream
+    const videoSrc = video?.video_url || 'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4';
+
+    // Default HTML5 video stream for hosted videos
     return `
       <!DOCTYPE html>
       <html>
@@ -227,7 +208,7 @@ export default function VideoDetailScreen() {
           </style>
         </head>
         <body>
-          <video controls autoplay playsinline src="https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4" poster="${video?.thumbnail_url || ''}"></video>
+          <video controls autoplay playsinline src="${videoSrc}" poster="${video?.thumbnail_url || ''}"></video>
         </body>
       </html>
     `;
@@ -274,7 +255,7 @@ export default function VideoDetailScreen() {
           <View style={styles.streamBadgeRow}>
             <View style={styles.streamDot} />
             <Text style={styles.streamBadgeText}>
-              {video.source_platform ? `LIVE ${video.source_platform.toUpperCase()} STREAM` : 'LIVE CLOUD VIDEO'}
+              {video.youtube_id ? 'YOUTUBE STREAM' : video.source_platform ? `LIVE ${video.source_platform.toUpperCase()} STREAM` : 'LIVE CLOUD VIDEO'}
             </Text>
           </View>
         </View>
@@ -291,24 +272,32 @@ export default function VideoDetailScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Exact Embedded Video Player (YouTube, Dailymotion, Cloud) */}
+        {/* Exact Embedded Video Player (YouTube iframe or hosted Video) */}
         <View style={styles.playerContainer}>
-          <WebView
-            originWhitelist={['*']}
-            source={{ html: getEmbedHtml() }}
-            style={styles.webViewPlayer}
-            allowsFullscreenVideo
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState
-            renderLoading={() => (
-              <View style={styles.webLoadingOverlay}>
-                <ActivityIndicator size="large" color="#a855f7" />
-              </View>
-            )}
-          />
+          {video?.youtube_id ? (
+            <YoutubePlayer
+              height={220}
+              play={autoplay}
+              videoId={video.youtube_id}
+            />
+          ) : (
+            <WebView
+              originWhitelist={['*']}
+              source={{ html: getEmbedHtml() }}
+              style={styles.webViewPlayer}
+              allowsFullscreenVideo
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              renderLoading={() => (
+                <View style={styles.webLoadingOverlay}>
+                  <ActivityIndicator size="large" color="#a855f7" />
+                </View>
+              )}
+            />
+          )}
         </View>
 
         {/* Video Info Section */}

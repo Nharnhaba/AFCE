@@ -154,8 +154,11 @@ export default function ProfileTab() {
     ? `@${user.email.split('@')[0]}`
     : `@${displayName.toLowerCase().replace(/\s+/g, '')}`;
 
+  const ADMIN_EMAILS = ['agyeik2129@gmail.com', 'tinodavin91@gmail.com'];
+  const isAdmin = user?.role === 'admin' || (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
+
   const menuItems = [
-    ...(user?.role === 'admin'
+    ...(isAdmin
       ? [
           {
             id: 'admin-dashboard',
@@ -291,7 +294,7 @@ export default function ProfileTab() {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Account Role</Text>
-            <Text style={styles.detailValAccent}>{user?.role || 'Member'}</Text>
+            <Text style={styles.detailValAccent}>{isAdmin ? 'Admin' : (user?.role || 'Member')}</Text>
           </View>
         </View>
 

@@ -67,25 +67,25 @@ export default function AdminDashboard() {
             <View style={styles.statsGrid}>
               <View style={styles.statCard}>
                 <Ionicons name="people" size={28} color="#3b82f6" />
-                <Text style={styles.statValue}>{stats?.users || 0}</Text>
+                <Text style={styles.statValue}>{stats?.total_users ?? stats?.users ?? 0}</Text>
                 <Text style={styles.statLabel}>Total Users</Text>
               </View>
               
               <View style={styles.statCard}>
                 <Ionicons name="play-circle" size={28} color="#f43f5e" />
-                <Text style={styles.statValue}>{stats?.videos || 0}</Text>
+                <Text style={styles.statValue}>{stats?.total_videos ?? stats?.videos ?? 0}</Text>
                 <Text style={styles.statLabel}>Videos</Text>
               </View>
 
               <View style={styles.statCard}>
                 <Ionicons name="musical-notes" size={28} color="#10b981" />
-                <Text style={styles.statValue}>{stats?.tracks || 0}</Text>
+                <Text style={styles.statValue}>{stats?.total_tracks ?? stats?.tracks ?? 0}</Text>
                 <Text style={styles.statLabel}>Tracks</Text>
               </View>
 
               <View style={styles.statCard}>
                 <Ionicons name="document-text" size={28} color="#eab308" />
-                <Text style={styles.statValue}>{stats?.articles || 0}</Text>
+                <Text style={styles.statValue}>{stats?.total_articles ?? stats?.articles ?? 0}</Text>
                 <Text style={styles.statLabel}>Articles</Text>
               </View>
             </View>

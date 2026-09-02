@@ -20,7 +20,12 @@ export async function getNotifications(): Promise<AppNotification[]> {
     });
     if (!res.ok) throw new Error('Failed to fetch notifications');
     const json = await res.json();
-    return json.data || json;
+    const rawList = json.notifications?.data || json.notifications || json.data || json;
+    if (!Array.isArray(rawList)) return [];
+    return rawList.map((item: any) => ({
+      ...item,
+      read: item.read !== undefined ? item.read : item.read_at !== null,
+    }));
   } catch (err) {
     console.error('getNotifications error:', err);
     return []; // Return empty array on failure

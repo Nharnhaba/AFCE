@@ -462,7 +462,7 @@ export async function createPlaylist(name: string, description?: string) {
   const res = await fetch(`${BASE_URL}/api/playlists`, {
     method: 'POST',
     headers: await getAuthHeaders(),
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ title: name, name, description }),
   });
   if (!res.ok) throw new Error('Failed to create playlist');
   return res.json();

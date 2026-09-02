@@ -232,7 +232,13 @@ export async function deleteVideo(id: string | number) {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Delete failed');
+  if (!res.ok) throw new Error('Failed to delete video');
+  if (res.status === 204) return { success: true };
+  try {
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
 }
 
 // --- Music/Tracks ---
@@ -284,7 +290,13 @@ export async function deleteTrack(id: string | number) {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Delete failed');
+  if (!res.ok) throw new Error('Failed to delete track');
+  if (res.status === 204) return { success: true };
+  try {
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
 }
 
 // --- Articles/News ---
@@ -334,7 +346,13 @@ export async function deleteArticle(id: string | number) {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Delete failed');
+  if (!res.ok) throw new Error('Failed to delete article');
+  if (res.status === 204) return { success: true };
+  try {
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
 }
 
 // --- Likes ---

@@ -125,6 +125,26 @@ export async function loginUser(email: string, password: string) {
   return data;
 }
 
+export async function googleLogin(idToken: string) {
+  const res = await fetch(`${BASE_URL}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Google login failed');
+  }
+  const data = await res.json();
+  if (data.token) {
+    await saveAuthToken(data.token);
+  }
+  if (data.user && data.user.name) {
+    await saveStoredName(data.user.name);
+  }
+  return data;
+}
+
 export async function getCurrentUser() {
   const headers = await getAuthHeaders();
   const res = await fetch(`${BASE_URL}/api/user`, {

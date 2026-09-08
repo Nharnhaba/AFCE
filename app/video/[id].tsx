@@ -65,11 +65,18 @@ export default function VideoDetailScreen() {
           setLikesCount(beData.likes_count || 0);
           setLiked(!!beData.liked);
         } else {
-          // Live cloud streaming video
+          // Live cloud streaming video or YouTube video
           const liveData = await getLiveVideoDetail(videoId);
           if (liveData) {
             setVideo(liveData);
             setLikesCount(liveData.likes_count || 45000);
+          } else {
+            const streams = await fetchLiveStreamingVideos('All');
+            const fallback = streams.find((v) => v.id.toString() === videoId) || streams[0];
+            if (fallback) {
+              setVideo(fallback);
+              setLikesCount(fallback.likes_count || 45000);
+            }
           }
         }
 
@@ -169,6 +176,12 @@ export default function VideoDetailScreen() {
     const rem = s % 60;
     return `${m}:${rem < 10 ? '0' : ''}${rem}`;
   };
+
+  function extractYouTubeId(url?: string): string | null {
+    if (!url) return null;
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? match[1] : null;
+  }
 
   // Generate exact embedded player HTML/URL for non-YouTube hosted videos
   const getEmbedHtml = () => {
@@ -274,30 +287,47 @@ export default function VideoDetailScreen() {
       >
         {/* Exact Embedded Video Player (YouTube iframe or hosted Video) */}
         <View style={styles.playerContainer}>
-          {video?.youtube_id ? (
-            <YoutubePlayer
-              height={220}
-              play={false}
-              videoId={video.youtube_id}
-            />
-          ) : (
-            <WebView
-              originWhitelist={['*']}
-              source={{ html: getEmbedHtml() }}
-              style={styles.webViewPlayer}
-              allowsFullscreenVideo
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              renderLoading={() => (
-                <View style={styles.webLoadingOverlay}>
-                  <ActivityIndicator size="large" color="#a855f7" />
-                </View>
-              )}
-            />
-          )}
+          {(() => {
+            const ytId = video?.youtube_id || extractYouTubeId(video?.video_url);
+            if (ytId) {
+              if (Platform.OS === 'web') {
+                return (
+                  <iframe
+                    style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#000' } as any}
+                    src={`https://www.youtube.com/embed/${ytId}?autoplay=1&playsinline=1`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                    allowFullScreen
+                  />
+                );
+              }
+              return (
+                <YoutubePlayer
+                  height={220}
+                  play={autoplay}
+                  videoId={ytId}
+                />
+              );
+            }
+
+            return (
+              <WebView
+                originWhitelist={['*']}
+                source={{ html: getEmbedHtml() }}
+                style={styles.webViewPlayer}
+                allowsFullscreenVideo
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled
+                domStorageEnabled
+                startInLoadingState
+                renderLoading={() => (
+                  <View style={styles.webLoadingOverlay}>
+                    <ActivityIndicator size="large" color="#a855f7" />
+                  </View>
+                )}
+              />
+            );
+          })()}
         </View>
 
         {/* Video Info Section */}

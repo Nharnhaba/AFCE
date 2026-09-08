@@ -277,7 +277,7 @@ export default function VideoDetailScreen() {
           {video?.youtube_id ? (
             <YoutubePlayer
               height={220}
-              play={autoplay}
+              play={false}
               videoId={video.youtube_id}
             />
           ) : (

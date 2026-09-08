@@ -164,7 +164,7 @@ export default function ProfileTab() {
             id: 'admin-dashboard',
             title: 'Admin Dashboard',
             icon: 'shield-checkmark-outline',
-            onPress: () => router.push('/admin/dashboard'),
+            onPress: () => router.push('/admin' as any),
           },
         ]
       : []),

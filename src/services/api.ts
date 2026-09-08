@@ -537,7 +537,7 @@ export async function getAdminStats() {
   const res = await fetch(`${BASE_URL}/api/admin/stats`, {
     headers: await getAuthHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to fetch admin stats');
+  if (!res.ok) throw new Error('Failed to load admin stats');
   return res.json();
 }
 
@@ -545,17 +545,29 @@ export async function getAdminUsers() {
   const res = await fetch(`${BASE_URL}/api/admin/users`, {
     headers: await getAuthHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to fetch admin users');
+  if (!res.ok) throw new Error('Failed to load users');
   return res.json();
 }
 
-export async function updateAdminUserRole(userId: string | number, role: 'admin' | 'user') {
+export async function updateUserRole(userId: string | number, role: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${BASE_URL}/api/admin/users/${userId}/role`, {
     method: 'PUT',
-    headers: await getAuthHeaders(),
+    headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ role }),
   });
-  if (!res.ok) throw new Error('Failed to update user role');
+  if (!res.ok) throw new Error('Failed to update role');
+  return res.json();
+}
+
+export const updateAdminUserRole = updateUserRole;
+
+export async function adminDeleteContent(type: string, id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/admin/${type}/${id}`, {
+    method: 'DELETE',
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete content');
   return res.json();
 }
 

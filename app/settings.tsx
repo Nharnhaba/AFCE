@@ -7,17 +7,32 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { clearAuthToken } from '../src/services/api';
+import { clearAuthToken, getProfile, getCurrentUser } from '../src/services/api';
 import MovingBackground from '../src/components/MovingBackground';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState(true);
   const [streamQuality, setStreamQuality] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const u = await getProfile().catch(() => getCurrentUser().catch(() => null));
+        if (u) {
+          const ADMIN_EMAILS = ['agyeik2129@gmail.com', 'tinodavin91@gmail.com'];
+          if (u.role === 'admin' || (u.email && ADMIN_EMAILS.includes(u.email.toLowerCase()))) {
+            setIsAdmin(true);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -34,6 +49,15 @@ export default function SettingsScreen() {
   };
 
   const settingsSections = [
+    ...(isAdmin
+      ? [
+          {
+            title: 'Admin Dashboard',
+            icon: 'shield-checkmark-outline',
+            onPress: () => router.push('/admin' as any),
+          },
+        ]
+      : []),
     {
       title: 'Account',
       icon: 'person-outline',

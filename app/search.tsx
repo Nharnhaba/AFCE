@@ -15,13 +15,12 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getGlobalTrending, searchContent } from '../src/services/api';
-import { fetchLiveTrendingMusic, StreamingTrack } from '../src/services/musicStreaming';
+import { fetchLiveTrendingMusic } from '../src/services/musicStreaming';
 import {
   fetchLiveStreamingVideos,
   searchLiveStreamingVideos,
-  StreamingVideo,
 } from '../src/services/videoStreaming';
-import { fetchLiveNews, LiveArticle } from '../src/services/rss';
+import { fetchLiveNews } from '../src/services/rss';
 import { playTrack } from '../src/services/audioPlayer';
 import MovingBackground from '../src/components/MovingBackground';
 
@@ -347,7 +346,7 @@ export default function SearchScreen() {
           <MaterialCommunityIcons name="magnify-scan" size={64} color="#334155" />
           <Text style={styles.emptyTitle}>No results found</Text>
           <Text style={styles.emptyDescription}>
-            We couldn't find matches for "{query}". Try checking your spelling or searching another artist, topic, or genre.
+            {`We couldn't find matches for "${query}". Try checking your spelling or searching another artist, topic, or genre.`}
           </Text>
         </View>
       ) : (

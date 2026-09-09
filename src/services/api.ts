@@ -596,26 +596,33 @@ export async function adminDeleteContent(type: string, id: string | number) {
 // --- Notifications ---
 export async function getNotifications() {
   const res = await fetch(`${BASE_URL}/api/notifications`, {
-    headers: await getAuthHeaders(),
+    headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to fetch notifications');
+  if (!res.ok) throw new Error('Failed to load notifications');
   return res.json();
 }
 
-export async function markNotificationsAsRead() {
+export async function markAllNotificationsAsRead() {
   const res = await fetch(`${BASE_URL}/api/notifications/read-all`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to mark notifications as read');
   return res.json();
 }
 
+export const markNotificationsAsRead = markAllNotificationsAsRead;
+
 export async function deleteNotification(id: string | number) {
   const res = await fetch(`${BASE_URL}/api/notifications/${id}`, {
     method: 'DELETE',
-    headers: await getAuthHeaders(),
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to delete notification');
-  return res.json();
+  if (res.status === 204) return { success: true };
+  try {
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
 }

@@ -5,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  TextInput,
   Alert,
   ScrollView,
   KeyboardAvoidingView,
@@ -19,7 +17,6 @@ import {
   clearAuthToken,
   getCurrentUser,
   getProfile,
-  updateProfile,
   loadStoredToken,
 } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
@@ -27,16 +24,13 @@ import MovingBackground from '../../src/components/MovingBackground';
 export default function ProfileTab() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editVisible, setEditVisible] = useState(false);
-  const [saving, setSaving] = useState(false);
 
-  // Edit form state
-  const [editName, setEditName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editPassword, setEditPassword] = useState('');
-  const [editPasswordConfirm, setEditPasswordConfirm] = useState('');
+
+
+
 
   const loadUser = useCallback(async () => {
     setLoading(true);
@@ -61,7 +55,8 @@ export default function ProfileTab() {
         profileData = await getCurrentUser();
       }
 
-      setUser(profileData);
+      setUser(profileData?.user ?? profileData);
+  setStats(profileData?.stats ?? null);
     } catch (err: any) {
       console.error('Failed to load profile data:', err);
       if (err?.status === 401 || err?.message?.toLowerCase().includes('unauthorized')) {
@@ -97,41 +92,7 @@ export default function ProfileTab() {
     router.push('/edit-profile');
   };
 
-  const handleSaveProfile = async () => {
-    if (!editName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
-      return;
-    }
-    if (!editEmail.trim()) {
-      Alert.alert('Error', 'Email cannot be empty');
-      return;
-    }
-    if (editPassword && editPassword !== editPasswordConfirm) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-    if (editPassword && editPassword.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters');
-      return;
-    }
 
-    setSaving(true);
-    try {
-      const payload: any = { name: editName.trim(), email: editEmail.trim() };
-      if (editPassword) {
-        payload.password = editPassword;
-        payload.password_confirmation = editPasswordConfirm;
-      }
-      await updateProfile(payload);
-      setUser((prev: any) => ({ ...prev, name: editName.trim(), email: editEmail.trim() }));
-      setEditVisible(false);
-      Alert.alert('Success', 'Profile updated successfully!');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -266,18 +227,18 @@ export default function ProfileTab() {
         {/* Stats Row */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{user?.posts_count ?? user?.videos_count ?? 12}</Text>
+            <Text style={styles.statNumber}>{(stats?.videos_count ?? 0) + (stats?.tracks_count ?? 0) + (stats?.articles_count ?? 0)}</Text>
             <Text style={styles.statLabel}>Uploads</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{user?.followers_count ?? '1.2K'}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
+            <Text style={styles.statNumber}>{(stats?.total_video_views ?? 0) + (stats?.total_article_views ?? 0)}</Text>
+            <Text style={styles.statLabel}>Total Views</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{user?.following_count ?? 240}</Text>
-            <Text style={styles.statLabel}>Following</Text>
+            <Text style={styles.statNumber}>{stats?.total_likes_received ?? 0}</Text>
+            <Text style={styles.statLabel}>Likes Received</Text>
           </View>
         </View>
 

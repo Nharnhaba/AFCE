@@ -57,7 +57,8 @@
           "savePhotosPermission": "Allow $(PRODUCT_NAME) to save media.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

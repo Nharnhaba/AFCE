@@ -86,7 +86,7 @@ export default function LoginScreen() {
       const response = await loginUser(email, password);
       await saveAuthToken(response.token);
       await saveRememberedEmail(email);
-      router.replace('/home');
+      router.replace('/(main)/home');
     } catch (err: any) {
       Alert.alert('Login failed', err.message || 'Invalid credentials');
     } finally {

@@ -41,7 +41,7 @@ export default function SignupScreen() {
       const response = await registerUser(name, email, password, passwordConfirmation);
       await saveAuthToken(response.token);
       Alert.alert('Success', 'Account created successfully!');
-      router.replace('/home');
+      router.replace('/(main)/home');
     } catch (err: any) {
       Alert.alert('Sign up failed', err.message || 'Something went wrong');
     } finally {

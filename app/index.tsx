@@ -20,7 +20,7 @@ export default function SplashScreen() {
     const checkAuthAndNavigate = async () => {
       const token = await loadStoredToken();
       if (token) {
-        router.replace('/home');
+        router.replace('/(main)/home');
       } else {
         router.replace('/onboarding');
       }

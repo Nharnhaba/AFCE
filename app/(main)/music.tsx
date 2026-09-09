@@ -671,6 +671,13 @@ export default function MusicTab() {
           </>
         )}
       </ScrollView>
+
+      {/* Add To Playlist Modal */}
+      <PlaylistModal
+        visible={playlistModalVisible}
+        trackId={selectedTrackId}
+        onClose={() => setPlaylistModalVisible(false)}
+      />
     </View>
   );
 }

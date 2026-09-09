@@ -8,12 +8,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MovingBackground from '../src/components/MovingBackground';
-import { getPlaylists, deletePlaylist } from '../src/services/api';
+import { getPlaylists, createPlaylist, deletePlaylist } from '../src/services/api';
 
 export default function PlaylistsScreen() {
   const router = useRouter();
@@ -21,12 +25,21 @@ export default function PlaylistsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchPlaylists = useCallback(async () => {
+  // Create Playlist Modal State
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const fetchPlaylists = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+
     try {
       const data = await getPlaylists();
-      setPlaylists(data || []);
+      setPlaylists(Array.isArray(data) ? data : data?.playlists || []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load playlists:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -38,8 +51,40 @@ export default function PlaylistsScreen() {
   }, [fetchPlaylists]);
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchPlaylists();
+    fetchPlaylists(true);
+  };
+
+  const handleOpenCreateModal = () => {
+    setNewName('');
+    setNewDesc('');
+    setCreateModalVisible(true);
+  };
+
+  const handleCreatePlaylist = async () => {
+    if (!newName.trim()) {
+      Alert.alert('Validation Error', 'Playlist name is required.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const res = await createPlaylist(newName.trim(), newDesc.trim() || undefined);
+      setCreateModalVisible(false);
+      setNewName('');
+      setNewDesc('');
+      await fetchPlaylists(true);
+
+      const created = res.playlist || res.data || res;
+      if (created?.id) {
+        router.push(`/playlist/${created.id}` as any);
+      } else {
+        Alert.alert('Success', 'Playlist created successfully!');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to create playlist');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleDelete = (id: string | number, name: string) => {
@@ -52,34 +97,51 @@ export default function PlaylistsScreen() {
           try {
             await deletePlaylist(id);
             setPlaylists((prev) => prev.filter((p) => p.id !== id));
-          } catch (err) {
-            Alert.alert('Error', 'Failed to delete playlist.');
+          } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to delete playlist.');
           }
         },
       },
     ]);
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => {
-        // Future enhancement: navigate to playlist detail screen
-        Alert.alert('Playlist', `Selected playlist: ${item.name}`);
-      }}
-    >
-      <View style={styles.iconContainer}>
-        <Ionicons name="musical-notes" size={24} color="#fff" />
-      </View>
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.count}>{item.tracks?.length || 0} tracks</Text>
-      </View>
-      <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item.id, item.name)}>
-        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+  const renderItem = ({ item }: { item: any }) => {
+    const trackCount = item.tracks_count ?? item.tracks?.length ?? 0;
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push(`/playlist/${item.id}` as any)}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#7c3aed', '#4f46e5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.iconContainer}
+        >
+          <Ionicons name="musical-notes" size={24} color="#ffffff" />
+        </LinearGradient>
+
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.name || item.title || 'Untitled Playlist'}
+          </Text>
+          <Text style={styles.count}>
+            {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
+            {item.description ? ` • ${item.description}` : ''}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={() => handleDelete(item.id, item.name || item.title || 'Playlist')}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="trash-outline" size={19} color="#ef4444" />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -90,17 +152,39 @@ export default function PlaylistsScreen() {
         style={StyleSheet.absoluteFill}
       />
 
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Playlists</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.createHeaderBtn} onPress={handleOpenCreateModal}>
+          <Ionicons name="add" size={24} color="#ffffff" />
+        </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {/* Quick Create Card Banner */}
+      <View style={styles.bannerContainer}>
+        <TouchableOpacity
+          style={styles.banner}
+          onPress={handleOpenCreateModal}
+          activeOpacity={0.85}
+        >
+          <View style={styles.bannerIconBox}>
+            <Ionicons name="add" size={22} color="#c084fc" />
+          </View>
+          <View style={styles.bannerTextBox}>
+            <Text style={styles.bannerTitle}>Create New Playlist</Text>
+            <Text style={styles.bannerSubtitle}>Organize your custom track collections</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+        </TouchableOpacity>
+      </View>
+
+      {loading && !refreshing ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#a855f7" />
+          <Text style={styles.loadingText}>Loading playlists...</Text>
         </View>
       ) : (
         <FlatList
@@ -108,6 +192,7 @@ export default function PlaylistsScreen() {
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -118,15 +203,91 @@ export default function PlaylistsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="list-outline" size={64} color="#334155" />
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="list-outline" size={48} color="#a855f7" />
+              </View>
               <Text style={styles.emptyTitle}>No Playlists Yet</Text>
               <Text style={styles.emptySubtitle}>
-                Go to the Music tab to create a playlist and add your favorite tracks!
+                Create your first playlist to save and organize your favorite songs.
               </Text>
+              <TouchableOpacity
+                style={styles.emptyCreateBtn}
+                onPress={handleOpenCreateModal}
+              >
+                <Text style={styles.emptyCreateBtnText}>Create Playlist</Text>
+              </TouchableOpacity>
             </View>
           }
         />
       )}
+
+      {/* Create Playlist Modal */}
+      <Modal
+        visible={createModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setCreateModalVisible(false)}
+          />
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderIcon}>
+                <Ionicons name="musical-notes" size={20} color="#c084fc" />
+              </View>
+              <Text style={styles.modalTitle}>Create Playlist</Text>
+            </View>
+
+            <Text style={styles.inputLabel}>Playlist Name *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Chill Vibes, Workout Mix..."
+              placeholderTextColor="#64748b"
+              value={newName}
+              onChangeText={setNewName}
+              autoFocus
+            />
+
+            <Text style={styles.inputLabel}>Description (Optional)</Text>
+            <TextInput
+              style={[styles.input, styles.inputMultiline]}
+              placeholder="Add an optional description"
+              placeholderTextColor="#64748b"
+              value={newDesc}
+              onChangeText={setNewDesc}
+              multiline
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setCreateModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, !newName.trim() && styles.btnDisabled]}
+                onPress={handleCreatePlaylist}
+                disabled={creating || !newName.trim()}
+              >
+                {creating ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Create</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -156,15 +317,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  createHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#9333ea',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '700',
   },
+  bannerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161622',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#242436',
+  },
+  bannerIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#2a1b3d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bannerTextBox: {
+    flex: 1,
+  },
+  bannerTitle: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  bannerSubtitle: {
+    color: '#94a3b8',
+    fontSize: 12,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 100,
+  },
+  loadingText: {
+    color: '#94a3b8',
+    marginTop: 12,
+    fontSize: 13,
   },
   listContent: {
     padding: 16,
@@ -174,29 +385,29 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#161622',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#242436',
     alignItems: 'center',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#a855f7',
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   info: {
     flex: 1,
+    marginRight: 8,
   },
   title: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 4,
   },
   count: {
@@ -204,26 +415,146 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   deleteBtn: {
-    padding: 8,
-  },
-  emptyContainer: {
-    flex: 1,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: '40%',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#161622',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#242436',
   },
   emptyTitle: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '700',
-    marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
-    color: '#64748b',
+    color: '#94a3b8',
     fontSize: 14,
     textAlign: 'center',
-    paddingHorizontal: 32,
     lineHeight: 20,
+    marginBottom: 20,
+  },
+  emptyCreateBtn: {
+    backgroundColor: '#9333ea',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+  },
+  emptyCreateBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#161622',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#242436',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  modalHeaderIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2a1b3d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  modalTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  inputLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: '#0a0a0f',
+    borderWidth: 1,
+    borderColor: '#242436',
+    borderRadius: 12,
+    color: '#ffffff',
+    paddingHorizontal: 14,
+    height: 46,
+    fontSize: 14,
+    marginBottom: 14,
+  },
+  inputMultiline: {
+    height: 70,
+    paddingTop: 10,
+    textAlignVertical: 'top',
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 6,
+  },
+  modalCancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: '#1e1e2d',
+  },
+  modalCancelText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalSubmitBtn: {
+    backgroundColor: '#9333ea',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  modalSubmitText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

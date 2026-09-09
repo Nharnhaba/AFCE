@@ -480,7 +480,7 @@ export async function getBookmarks() {
 // --- Playlists ---
 export async function getPlaylists() {
   const res = await fetch(`${BASE_URL}/api/playlists`, {
-    headers: await getAuthHeaders(),
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch playlists');
   const json = await res.json();
@@ -489,7 +489,7 @@ export async function getPlaylists() {
 
 export async function getPlaylist(playlistId: string | number) {
   const res = await fetch(`${BASE_URL}/api/playlists/${playlistId}`, {
-    headers: await getAuthHeaders(),
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch playlist details');
   const json = await res.json();
@@ -499,37 +499,59 @@ export async function getPlaylist(playlistId: string | number) {
 export async function createPlaylist(name: string, description?: string) {
   const res = await fetch(`${BASE_URL}/api/playlists`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
-    body: JSON.stringify({ title: name, name, description }),
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description, title: name }),
   });
   if (!res.ok) throw new Error('Failed to create playlist');
   return res.json();
 }
 
+export async function updatePlaylist(id: string | number, data: { name?: string; description?: string }) {
+  const res = await fetch(`${BASE_URL}/api/playlists/${id}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update playlist');
+  return res.json();
+}
+
+export async function deletePlaylist(id: string | number) {
+  const res = await fetch(`${BASE_URL}/api/playlists/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete playlist');
+  if (res.status === 204) return { success: true };
+  try {
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
+}
+
 export async function addTrackToPlaylist(playlistId: string | number, trackId: string | number) {
   const res = await fetch(`${BASE_URL}/api/playlists/${playlistId}/tracks`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ track_id: trackId }),
   });
-  if (!res.ok) throw new Error('Failed to add track to playlist');
+  if (!res.ok) throw new Error('Failed to add track');
   return res.json();
 }
 
 export async function removeTrackFromPlaylist(playlistId: string | number, trackId: string | number) {
   const res = await fetch(`${BASE_URL}/api/playlists/${playlistId}/tracks/${trackId}`, {
     method: 'DELETE',
-    headers: await getAuthHeaders(),
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to remove track');
-}
-
-export async function deletePlaylist(playlistId: string | number) {
-  const res = await fetch(`${BASE_URL}/api/playlists/${playlistId}`, {
-    method: 'DELETE',
-    headers: await getAuthHeaders(),
-  });
-  if (!res.ok) throw new Error('Failed to delete playlist');
+  if (res.status === 204) return { success: true };
+  try {
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
 }
 
 // --- Admin ---

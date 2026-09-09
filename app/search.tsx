@@ -23,6 +23,7 @@ import {
 import { fetchLiveNews } from '../src/services/rss';
 import { playTrack } from '../src/services/audioPlayer';
 import MovingBackground from '../src/components/MovingBackground';
+import PlaylistModal from '../src/components/PlaylistModal';
 
 const FILTER_TABS = ['All', 'Videos', 'Music', 'News'];
 
@@ -48,6 +49,8 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [loading, setLoading] = useState(false);
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<any>(null);
   const [results, setResults] = useState<SearchResultsState>({
     videos: [],
     tracks: [],
@@ -199,6 +202,12 @@ export default function SearchScreen() {
       link: track.link,
     });
     router.push(`/music/${track.id}` as any);
+  };
+
+  const handleOpenPlaylistModal = (track: any, e?: any) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    setSelectedTrackForPlaylist(track);
+    setPlaylistModalVisible(true);
   };
 
   const totalResultsCount =
@@ -449,12 +458,20 @@ export default function SearchScreen() {
                     </Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.playIconBtn}
-                    onPress={(e) => handlePlayMusic(track, e)}
-                  >
-                    <Ionicons name="play" size={15} color="#ffffff" style={{ marginLeft: 2 }} />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity
+                      style={styles.playlistIconBtn}
+                      onPress={(e) => handleOpenPlaylistModal(track, e)}
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color="#a855f7" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.playIconBtn}
+                      onPress={(e) => handlePlayMusic(track, e)}
+                    >
+                      <Ionicons name="play" size={15} color="#ffffff" style={{ marginLeft: 2 }} />
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -512,6 +529,14 @@ export default function SearchScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* Playlist Modal */}
+      <PlaylistModal
+        visible={playlistModalVisible}
+        trackId={selectedTrackForPlaylist?.id}
+        trackTitle={selectedTrackForPlaylist?.title}
+        onClose={() => setPlaylistModalVisible(false)}
+      />
     </View>
   );
 }
@@ -774,6 +799,14 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     backgroundColor: '#9333ea',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playlistIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#2a1b3d',
     justifyContent: 'center',
     alignItems: 'center',
   },

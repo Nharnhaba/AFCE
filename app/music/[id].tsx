@@ -28,6 +28,7 @@ import {
 } from '../../src/services/audioPlayer';
 import { getTrackDetail, toggleLike, toggleBookmark } from '../../src/services/api';
 import MovingBackground from '../../src/components/MovingBackground';
+import PlaylistModal from '../../src/components/PlaylistModal';
 
 export default function TrackDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -40,6 +41,7 @@ export default function TrackDetailScreen() {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
 
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
@@ -422,6 +424,14 @@ export default function TrackDetailScreen() {
 
           <TouchableOpacity
             style={styles.actionBtn}
+            onPress={() => setPlaylistModalVisible(true)}
+          >
+            <Ionicons name="list" size={19} color="#c084fc" />
+            <Text style={styles.actionBtnText}>Add to Playlist</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionBtn}
             onPress={() => Alert.alert('Share', `Sharing "${track.title}"`)}
           >
             <Ionicons name="arrow-redo-outline" size={19} color="#94a3b8" />
@@ -460,6 +470,14 @@ export default function TrackDetailScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Playlist Modal */}
+      <PlaylistModal
+        visible={playlistModalVisible}
+        trackId={track?.id}
+        trackTitle={track?.title}
+        onClose={() => setPlaylistModalVisible(false)}
+      />
     </View>
   );
 }

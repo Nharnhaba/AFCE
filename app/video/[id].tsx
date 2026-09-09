@@ -58,7 +58,20 @@ export default function VideoDetailScreen() {
     const fetchDetails = async () => {
       setLoading(true);
       try {
-        if (videoId.startsWith('be-')) {
+        if (videoId.startsWith('local-')) {
+          const params = (router as any).params || {};
+          setVideo({
+            id: videoId,
+            title: (videoId.replace('local-', '') || 'Local Video').replace(/_/g, ' '),
+            video_url: videoId.replace('local-', ''),
+            thumbnail_url: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=800',
+            channel_name: 'On This Device',
+            description: 'Local video stored on your device storage.',
+            views: 'Local',
+            likes_count: 0,
+            published_at: 'Device Storage',
+          });
+        } else if (videoId.startsWith('be-')) {
           const backendId = videoId.replace('be-', '');
           const beData = await getVideoDetail(backendId);
           setVideo(beData);

@@ -80,8 +80,10 @@ const TrackDownloadButton = ({ track }: { track: any }) => {
     </TouchableOpacity>
   );
 };
+
 import MovingBackground from '../../src/components/MovingBackground';
 import PlaylistModal from '../../src/components/PlaylistModal';
+import { getLocalAudioFiles, requestMediaPermission } from '../../src/services/localMedia';
 
 const GENRES = ['All', 'Afrobeats', 'Gospel', 'Reggae', 'Hip-Hop', 'R&B', 'Pop'];
 
@@ -89,9 +91,12 @@ export default function MusicTab() {
   const router = useRouter();
   const [tracks, setTracks] = useState<StreamingTrack[]>([]);
   const [jamendoTracks, setJamendoTracks] = useState<JamendoTrack[]>([]);
-  const [activeSource, setActiveSource] = useState<'trending' | 'full_songs'>('trending');
+  const [localTracks, setLocalTracks] = useState<any[]>([]);
+  const [activeSource, setActiveSource] = useState<'trending' | 'full_songs' | 'device'>('trending');
   const [loading, setLoading] = useState(true);
   const [jamendoLoading, setJamendoLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localPermissionGranted, setLocalPermissionGranted] = useState<boolean | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -113,6 +118,28 @@ export default function MusicTab() {
   const handleOpenPlaylistModal = (trackId: string | number) => {
     setSelectedTrackId(trackId);
     setPlaylistModalVisible(true);
+  };
+
+  const loadLocalAudio = useCallback(async () => {
+    setLocalLoading(true);
+    try {
+      const assets = await getLocalAudioFiles();
+      setLocalTracks(assets || []);
+      setLocalPermissionGranted(true);
+    } catch (err: any) {
+      setLocalPermissionGranted(false);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, []);
+
+  const handleRequestLocalPermission = async () => {
+    const granted = await requestMediaPermission();
+    if (granted) {
+      await loadLocalAudio();
+    } else {
+      setLocalPermissionGranted(false);
+    }
   };
 
   useEffect(() => {
@@ -271,7 +298,7 @@ export default function MusicTab() {
           </View>
         </View>
 
-        {/* Source Toggle Switcher: Trending vs Full Songs */}
+        {/* Source Toggle Switcher: Trending vs Full Songs vs Device */}
         <View style={styles.sourceToggleRow}>
           <TouchableOpacity
             style={[
@@ -283,9 +310,9 @@ export default function MusicTab() {
           >
             <Ionicons
               name="flame"
-              size={15}
+              size={14}
               color={activeSource === 'trending' ? '#ffffff' : '#94a3b8'}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 5 }}
             />
             <Text
               style={[
@@ -293,7 +320,7 @@ export default function MusicTab() {
                 activeSource === 'trending' && styles.activeSourceToggleText,
               ]}
             >
-              Trending Previews
+              Trending
             </Text>
           </TouchableOpacity>
 
@@ -307,9 +334,9 @@ export default function MusicTab() {
           >
             <Ionicons
               name="musical-notes"
-              size={15}
+              size={14}
               color={activeSource === 'full_songs' ? '#ffffff' : '#94a3b8'}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 5 }}
             />
             <Text
               style={[
@@ -317,11 +344,40 @@ export default function MusicTab() {
                 activeSource === 'full_songs' && styles.activeSourceToggleText,
               ]}
             >
-              Full Songs (Free Library)
+              Full Songs
             </Text>
             <View style={styles.fullBadgePill}>
               <Text style={styles.fullBadgePillText}>FREE</Text>
             </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.sourceToggleBtn,
+              activeSource === 'device' && styles.activeSourceToggleBtn,
+            ]}
+            onPress={() => {
+              setActiveSource('device');
+              if (localPermissionGranted !== true) {
+                loadLocalAudio();
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name="phone-portrait-outline"
+              size={14}
+              color={activeSource === 'device' ? '#ffffff' : '#94a3b8'}
+              style={{ marginRight: 5 }}
+            />
+            <Text
+              style={[
+                styles.sourceToggleText,
+                activeSource === 'device' && styles.activeSourceToggleText,
+              ]}
+            >
+              On Device
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -494,6 +550,154 @@ export default function MusicTab() {
                     <TouchableOpacity style={styles.retryBtn} onPress={handleRefreshClick}>
                       <Text style={styles.retryBtnText}>Tap to Refresh</Text>
                     </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </>
+        ) : activeSource === 'device' ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>On This Device</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Audio files and music stored on your local phone storage
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.refreshBadge}
+                onPress={loadLocalAudio}
+                disabled={localLoading}
+              >
+                <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                  <Ionicons name="sync-outline" size={14} color="#a855f7" />
+                </Animated.View>
+                <Text style={styles.refreshBadgeText}>
+                  {localLoading ? 'Scanning...' : 'Rescan'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {localPermissionGranted === false ? (
+              <View style={styles.permissionBox}>
+                <View style={styles.permissionIconCircle}>
+                  <Ionicons name="folder-open-outline" size={40} color="#a855f7" />
+                </View>
+                <Text style={styles.permissionTitle}>Device Media Access Required</Text>
+                <Text style={styles.permissionSubtitle}>
+                  Allow access to your media library to view and play audio tracks stored on this device.
+                </Text>
+                <TouchableOpacity
+                  style={styles.permissionGrantBtn}
+                  onPress={handleRequestLocalPermission}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.permissionGrantBtnText}>Allow Access</Text>
+                </TouchableOpacity>
+              </View>
+            ) : localLoading ? (
+              <View style={styles.tracksList}>
+                {[1, 2, 3, 4, 5].map((k) => (
+                  <View key={k} style={styles.skeletonTrackItem}>
+                    <View style={styles.skeletonCover} />
+                    <View style={styles.skeletonInfo}>
+                      <View style={styles.skeletonTitle} />
+                      <View style={styles.skeletonArtist} />
+                    </View>
+                    <View style={styles.skeletonButton} />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.tracksList}>
+                {localTracks.map((item, idx) => {
+                  const isCurrentTrack = playbackState.currentTrackId === item.id;
+                  const isCurrentlyPlaying = isCurrentTrack && playbackState.isPlaying;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id || idx}
+                      style={[
+                        styles.trackItem,
+                        isCurrentTrack && styles.activeTrackItem,
+                      ]}
+                      onPress={() =>
+                        playTrack(item.id, item.uri, {
+                          title: item.filename || 'Local Audio Track',
+                          artist: 'On This Device',
+                          duration: item.duration,
+                          cover_art_url: '',
+                        })
+                      }
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.coverWrapper, { backgroundColor: '#2a1b3d', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Ionicons name="musical-notes" size={24} color="#c084fc" />
+                        {isCurrentlyPlaying && (
+                          <View style={styles.playingOverlay}>
+                            <Ionicons name="volume-high" size={16} color="#fff" />
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.trackInfo}>
+                        <Text
+                          style={[
+                            styles.trackTitle,
+                            isCurrentTrack && styles.activeTrackTitle,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.filename || 'Untitled Track'}
+                        </Text>
+                        <Text style={styles.trackArtist} numberOfLines={1}>
+                          On This Device • {formatDuration(item.duration)}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => handleOpenPlaylistModal(item.id)}
+                        style={{ marginRight: 8, padding: 4 }}
+                      >
+                        <Ionicons name="add-circle-outline" size={22} color="#64748b" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.trackPlayButton,
+                          isCurrentlyPlaying && styles.activePlayButton,
+                        ]}
+                        onPress={() =>
+                          playTrack(item.id, item.uri, {
+                            title: item.filename || 'Local Audio Track',
+                            artist: 'On This Device',
+                            duration: item.duration,
+                            cover_art_url: '',
+                          })
+                        }
+                      >
+                        {playbackState.isLoading && isCurrentTrack ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Ionicons
+                            name={isCurrentlyPlaying ? 'pause' : 'play'}
+                            size={16}
+                            color={isCurrentlyPlaying ? '#ffffff' : '#c084fc'}
+                            style={isCurrentlyPlaying ? {} : { marginLeft: 2 }}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {localTracks.length === 0 && !localLoading && (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="phone-portrait-outline" size={48} color="#475569" />
+                    <Text style={styles.emptyText}>No local audio files found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Audio files stored on your device storage will appear here.
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1092,12 +1296,21 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   emptyText: {
-    color: '#64748b',
+    color: '#94a3b8',
     marginTop: 8,
     fontSize: 14,
-    fontStyle: 'italic',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: '#64748b',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 4,
   },
   retryBtn: {
     marginTop: 12,
@@ -1148,5 +1361,52 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     backgroundColor: '#1e293b',
+  },
+  permissionBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#161622',
+    borderRadius: 18,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#242436',
+    marginVertical: 10,
+  },
+  permissionIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#2a1b3d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#a855f7',
+  },
+  permissionTitle: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  permissionSubtitle: {
+    color: '#94a3b8',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+    paddingHorizontal: 12,
+  },
+  permissionGrantBtn: {
+    backgroundColor: '#9333ea',
+    paddingVertical: 12,
+    paddingHorizontal: 26,
+    borderRadius: 14,
+  },
+  permissionGrantBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

@@ -11,28 +11,105 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { clearAuthToken, getProfile, getCurrentUser } from '../src/services/api';
+import { getDownloadedItems, formatBytes } from '../src/services/downloadManager';
 import MovingBackground from '../src/components/MovingBackground';
+
+const NOTIFICATIONS_PREF_KEY = 'user_notifications_enabled';
+
+// Helper to estimate byte size from formatted strings like "5.2 MB", "450 KB", etc.
+function parseFormattedSizeToBytes(sizeStr: string): number {
+  if (!sizeStr || sizeStr === 'Unknown size') return 0;
+  const match = sizeStr.match(/([\d.]+)\s*([A-Za-z]+)/);
+  if (!match) return 0;
+  const val = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+  const multipliers: Record<string, number> = {
+    B: 1,
+    BYTES: 1,
+    KB: 1024,
+    MB: 1024 * 1024,
+    GB: 1024 * 1024 * 1024,
+    TB: 1024 * 1024 * 1024 * 1024,
+  };
+  return val * (multipliers[unit] || 1);
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState(true);
-  const [streamQuality, setStreamQuality] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const u = await getProfile().catch(() => getCurrentUser().catch(() => null));
-        if (u) {
-          const ADMIN_EMAILS = ['agyeik2129@gmail.com', 'tinodavin91@gmail.com'];
-          if (u.role === 'admin' || (u.email && ADMIN_EMAILS.includes(u.email.toLowerCase()))) {
-            setIsAdmin(true);
-          }
+        if (u && u.role === 'admin') {
+          setIsAdmin(true);
+        }
+      } catch {}
+
+      try {
+        const savedNotif = await SecureStore.getItemAsync(NOTIFICATIONS_PREF_KEY);
+        if (savedNotif !== null) {
+          setNotifications(savedNotif === 'true');
         }
       } catch {}
     })();
   }, []);
+
+  const handleNotificationToggle = async (val: boolean) => {
+    setNotifications(val);
+    try {
+      await SecureStore.setItemAsync(NOTIFICATIONS_PREF_KEY, val ? 'true' : 'false');
+    } catch (e) {
+      console.warn('Failed to save notification preference:', e);
+    }
+  };
+
+  const handleDataStoragePress = () => {
+    const downloads = getDownloadedItems();
+    if (!downloads || downloads.length === 0) {
+      Alert.alert(
+        'Data & Storage',
+        'Offline Downloads: 0 Bytes\n\n• Videos: 0\n• Music: 0\n• Articles: 0\n\nNo offline media cached.'
+      );
+      return;
+    }
+
+    let videoBytes = 0;
+    let musicBytes = 0;
+    let articleBytes = 0;
+    let videoCount = 0;
+    let musicCount = 0;
+    let articleCount = 0;
+
+    downloads.forEach((item) => {
+      const bytes = parseFormattedSizeToBytes(item.file_size);
+      if (item.type === 'video') {
+        videoBytes += bytes;
+        videoCount += 1;
+      } else if (item.type === 'track') {
+        musicBytes += bytes;
+        musicCount += 1;
+      } else {
+        articleBytes += bytes;
+        articleCount += 1;
+      }
+    });
+
+    const totalBytes = videoBytes + musicBytes + articleBytes;
+
+    Alert.alert(
+      'Data & Storage',
+      `Total Offline Storage: ${formatBytes(totalBytes)}\n\n` +
+        `• Videos: ${videoCount} (${formatBytes(videoBytes)})\n` +
+        `• Music: ${musicCount} (${formatBytes(musicBytes)})\n` +
+        `• Articles: ${articleCount} (${formatBytes(articleBytes)})\n\n` +
+        `Manage or remove downloaded files anytime in Playback & Downloads.`
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -66,14 +143,14 @@ export default function SettingsScreen() {
     {
       title: 'Security',
       icon: 'shield-checkmark-outline',
-      onPress: () => Alert.alert('Security', 'Password and two-factor authentication settings.'),
+      onPress: () => Alert.alert('Security', 'Password and account security settings.'),
     },
     {
       title: 'Notifications',
       icon: 'notifications-outline',
       hasSwitch: true,
       switchVal: notifications,
-      onSwitchChange: setNotifications,
+      onSwitchChange: handleNotificationToggle,
     },
     {
       title: 'Playback & Downloads',
@@ -83,7 +160,7 @@ export default function SettingsScreen() {
     {
       title: 'Data & Storage',
       icon: 'server-outline',
-      onPress: () => Alert.alert('Storage', 'Cached media: 184 MB.\nAll systems optimal.'),
+      onPress: handleDataStoragePress,
     },
     {
       title: 'Help & Support',

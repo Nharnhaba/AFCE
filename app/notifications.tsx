@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MovingBackground from '../src/components/MovingBackground';
 import {
@@ -302,7 +302,7 @@ export default function NotificationsScreen() {
               </View>
               <Text style={styles.emptyTitle}>No notifications yet</Text>
               <Text style={styles.emptySubtitle}>
-                When you receive alerts, content updates, or system messages, they'll appear here.
+                {"When you receive alerts, content updates, or system messages, they'll appear here."}
               </Text>
               <TouchableOpacity
                 style={styles.emptyRefreshBtn}

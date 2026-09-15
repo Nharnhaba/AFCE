@@ -402,7 +402,7 @@ export default function PlaylistDetailScreen() {
               <Ionicons name="musical-note-outline" size={48} color="#334155" />
               <Text style={styles.emptyTitle}>This playlist is empty</Text>
               <Text style={styles.emptySubtitle}>
-                Add tracks from the Music screen or Search results by tapping the "+" button.
+                {'Add tracks from the Music screen or Search results by tapping the "+" button.'}
               </Text>
             </View>
           }

@@ -125,7 +125,7 @@ export default function PlaylistModal({
                 <Text style={styles.title}>Add to Playlist</Text>
                 {trackTitle ? (
                   <Text style={styles.subtitle} numberOfLines={1}>
-                    "{trackTitle}"
+                    {`"${trackTitle}"`}
                   </Text>
                 ) : null}
               </View>

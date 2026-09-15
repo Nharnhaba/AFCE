@@ -214,13 +214,6 @@ export default function LoginScreen() {
               >
                 <FontAwesome name="facebook" size={20} color="#fff" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={() => handleSocialLogin('Apple')}
-              >
-                <AntDesign name="apple" size={20} color="#fff" />
-              </TouchableOpacity>
             </View>
           </View>
 

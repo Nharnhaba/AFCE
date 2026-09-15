@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   StyleSheet,
@@ -14,8 +14,12 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome, AntDesign } from '@expo/vector-icons';
-import { registerUser, saveAuthToken } from '../src/services/api';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { registerUser, googleLogin, saveAuthToken, saveRememberedEmail } from '../src/services/api';
 import MovingBackground from '../src/components/MovingBackground';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -25,6 +29,46 @@ export default function SignupScreen() {
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  const handleGoogleLogin = async (idToken: string) => {
+    if (!idToken) {
+      Alert.alert('Google Sign-In', 'No token received from Google.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await googleLogin(idToken);
+      if (res.token) {
+        await saveAuthToken(res.token);
+      }
+      if (res.user?.email) {
+        await saveRememberedEmail(res.user.email);
+      }
+      router.replace('/(main)/home');
+    } catch (err: any) {
+      Alert.alert('Google Sign-In Failed', err.message || 'Could not authenticate with Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken =
+        response.params?.id_token ||
+        (response as any).authentication?.idToken ||
+        response.params?.access_token;
+      if (idToken) {
+        handleGoogleLogin(idToken);
+      }
+    }
+  }, [response]);
 
   const handleSignup = async () => {
     if (!name || !email || !password || !passwordConfirmation) {
@@ -169,7 +213,8 @@ export default function SignupScreen() {
             <View style={styles.socialRow}>
               <TouchableOpacity
                 style={styles.socialBtn}
-                onPress={() => handleSocialLogin('Google')}
+                disabled={!request || loading}
+                onPress={() => promptAsync()}
               >
                 <AntDesign name="google" size={20} color="#fff" />
               </TouchableOpacity>
@@ -179,13 +224,6 @@ export default function SignupScreen() {
                 onPress={() => handleSocialLogin('Facebook')}
               >
                 <FontAwesome name="facebook" size={20} color="#fff" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={() => handleSocialLogin('Apple')}
-              >
-                <AntDesign name="apple" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>

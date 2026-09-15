@@ -96,7 +96,7 @@ export default function VideoDetailScreen() {
         const streams = await fetchLiveStreamingVideos('All');
         setUpNextVideos(streams.filter((v) => v.id.toString() !== videoId));
 
-        setIsSavedOffline(isDownloaded(videoId));
+        setIsSavedOffline(isDownloaded(videoId, 'video'));
       } catch (err) {
         console.error('Failed to load video details:', err);
       } finally {
@@ -115,7 +115,7 @@ export default function VideoDetailScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            await deleteDownload(video.id);
+            await deleteDownload(video.id, 'video');
             setIsSavedOffline(false);
           },
         },

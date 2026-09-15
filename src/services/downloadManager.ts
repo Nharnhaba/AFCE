@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 
 export interface DownloadedItem {
+  unique_key?: string;
   id: string; // The original media ID, treated as string for consistency
   type: 'track' | 'video' | 'article';
   title: string;
@@ -18,7 +19,8 @@ const db = SQLite.openDatabaseSync('downloads.db');
 export function initDownloadsDB() {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS downloads (
-      id TEXT PRIMARY KEY,
+      unique_key TEXT PRIMARY KEY,
+      id TEXT,
       type TEXT,
       title TEXT,
       artist TEXT,
@@ -85,10 +87,11 @@ export async function downloadMedia(
     const sizeStr = fileInfo.exists && fileInfo.size ? formatBytes(fileInfo.size) : 'Unknown size';
     const downloadedAt = new Date().toISOString();
     const idStr = item.id.toString();
+    const uniqueKey = `${item.type}_${idStr}`;
 
     db.runSync(
-      `INSERT OR REPLACE INTO downloads (id, type, title, artist, local_file_path, thumbnail, downloaded_at, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      idStr, item.type, item.title, item.artist, result.uri, item.thumbnail, downloadedAt, sizeStr
+      `INSERT OR REPLACE INTO downloads (unique_key, id, type, title, artist, local_file_path, thumbnail, downloaded_at, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      uniqueKey, idStr, item.type, item.title, item.artist, result.uri, item.thumbnail, downloadedAt, sizeStr
     );
 
     return true;
@@ -102,9 +105,10 @@ export function getDownloadedItems(): DownloadedItem[] {
   return db.getAllSync<DownloadedItem>('SELECT * FROM downloads ORDER BY downloaded_at DESC');
 }
 
-export async function deleteDownload(id: string | number) {
+export async function deleteDownload(id: string | number, type: 'track' | 'video' | 'article' = 'video') {
   const idStr = id.toString();
-  const item = db.getFirstSync<DownloadedItem>('SELECT local_file_path FROM downloads WHERE id = ?', idStr);
+  const uniqueKey = idStr.includes('_') ? idStr : `${type}_${idStr}`;
+  const item = db.getFirstSync<DownloadedItem>('SELECT local_file_path FROM downloads WHERE unique_key = ?', uniqueKey);
   
   if (item && item.local_file_path) {
     try {
@@ -114,11 +118,12 @@ export async function deleteDownload(id: string | number) {
     }
   }
 
-  db.runSync('DELETE FROM downloads WHERE id = ?', idStr);
+  db.runSync('DELETE FROM downloads WHERE unique_key = ?', uniqueKey);
 }
 
-export function isDownloaded(id: string | number): boolean {
+export function isDownloaded(id: string | number, type: 'track' | 'video' | 'article' = 'video'): boolean {
   const idStr = id.toString();
-  const row = db.getFirstSync<{ id: string }>('SELECT id FROM downloads WHERE id = ?', idStr);
+  const uniqueKey = idStr.includes('_') ? idStr : `${type}_${idStr}`;
+  const row = db.getFirstSync<{ unique_key: string }>('SELECT unique_key FROM downloads WHERE unique_key = ?', uniqueKey);
   return !!row;
 }

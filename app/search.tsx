@@ -94,10 +94,19 @@ export default function SearchScreen() {
     loadInitialTrending();
   }, [loadInitialTrending]);
 
-  const deduplicate = (items: any[], key: string = 'id') => {
+  const deduplicate = (items: any[], defaultKey: string = 'title') => {
     const seen = new Set<string>();
     return items.filter((item) => {
-      const val = (item[key] || item.id || '').toString().toLowerCase();
+      const title = (item[defaultKey] || item.title || item.id || '').toString().toLowerCase().trim();
+      const secondary = (
+        item.artist ||
+        item.channelTitle ||
+        item.channel_name ||
+        item.source ||
+        item.type ||
+        ''
+      ).toString().toLowerCase().trim();
+      const val = secondary ? `${title}_${secondary}` : title;
       if (!val || seen.has(val)) return false;
       seen.add(val);
       return true;

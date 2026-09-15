@@ -32,14 +32,14 @@ export default function DownloadsScreen() {
     }, [loadDownloads])
   );
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (item: DownloadedItem) => {
     Alert.alert('Delete Download', 'Remove this item from offline downloads?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteDownload(id);
+          await deleteDownload(item.unique_key || item.id, item.type);
           loadDownloads();
         },
       },
@@ -102,7 +102,7 @@ export default function DownloadsScreen() {
       >
         {currentItems.map((item) => (
           <TouchableOpacity
-            key={item.id}
+            key={item.unique_key || `${item.type}_${item.id}`}
             style={styles.downloadCard}
             onPress={() => {
               if (item.type === 'video') router.push(`/video/${item.id}` as any);
@@ -129,7 +129,7 @@ export default function DownloadsScreen() {
 
             <TouchableOpacity
               style={styles.menuBtn}
-              onPress={() => handleDelete(item.id)}
+              onPress={() => handleDelete(item)}
             >
               <Ionicons name="trash-outline" size={18} color="#ef4444" />
             </TouchableOpacity>

@@ -39,7 +39,7 @@ const TrackDownloadButton = ({ track }: { track: any }) => {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setSaved(isDownloaded(track.id));
+    setSaved(isDownloaded(track.id, 'track'));
   }, [track.id]);
 
   const handleToggle = async () => {
@@ -47,7 +47,7 @@ const TrackDownloadButton = ({ track }: { track: any }) => {
       Alert.alert('Remove', 'Remove from downloads?', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Remove', style: 'destructive', onPress: async () => {
-          await deleteDownload(track.id);
+          await deleteDownload(track.id, 'track');
           setSaved(false);
         }}
       ]);

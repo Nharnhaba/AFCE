@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, FontAwesome, AntDesign } from '@expo/vector-icons';
+import { Ionicons, AntDesign } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { loginUser, googleLogin, saveAuthToken, loadRememberedEmail, saveRememberedEmail } from '../src/services/api';
@@ -92,10 +92,6 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    Alert.alert('Social Sign-in', `${provider} sign-in will be available soon.`);
   };
 
   return (
@@ -198,23 +194,16 @@ export default function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Social Buttons */}
-            <View style={styles.socialRow}>
-              <TouchableOpacity
-                style={styles.socialBtn}
-                disabled={!request || loading}
-                onPress={() => promptAsync()}
-              >
-                <AntDesign name="google" size={20} color="#fff" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={() => handleSocialLogin('Facebook')}
-              >
-                <FontAwesome name="facebook" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
+            {/* Social Google Button */}
+            <TouchableOpacity
+              style={styles.googleBtn}
+              disabled={!request || loading}
+              onPress={() => promptAsync()}
+              activeOpacity={0.85}
+            >
+              <AntDesign name="google" size={20} color="#fff" style={styles.googleIcon} />
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Footer */}
@@ -345,20 +334,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginHorizontal: 14,
   },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  socialBtn: {
-    width: 60,
-    height: 52,
+  googleBtn: {
+    height: 54,
     borderRadius: 14,
     backgroundColor: '#161622',
     borderWidth: 1,
     borderColor: '#242436',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  googleIcon: {
+    marginRight: 10,
+  },
+  googleBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
